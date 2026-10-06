@@ -1,26 +1,34 @@
-# Code owners. Teams must exist in the organisation before ownership takes effect;
-# see docs/development/github-setup.md.
+# Code owners.
+#
+# The repository belongs to the personal account @hafizhuzaifaahmed. Personal accounts have no
+# teams, so ownership is assigned to individual collaborators. Every area is owned by the
+# repository owner until collaborators join; then add each collaborator's handle on the lines
+# for the areas they own. See docs/development/github-setup.md.
 
-# Default: architecture review for anything not matched below.
-*                         @3d-det/architect
+# Default owner for anything not matched below.
+*                         @hafizhuzaifaahmed
 
-/apps/web/                @3d-det/frontend
-/apps/api/                @3d-det/backend
-/apps/worker/             @3d-det/backend
+# Applications
+/apps/web/                @hafizhuzaifaahmed
+/apps/api/                @hafizhuzaifaahmed
+/apps/worker/             @hafizhuzaifaahmed
 
-/packages/three/          @3d-det/three-d
-/packages/ai/             @3d-det/ai
-/packages/db/             @3d-det/backend
-/packages/domain/         @3d-det/backend
-/packages/contracts/      @3d-det/backend @3d-det/frontend
-/packages/ui/             @3d-det/frontend
-/packages/config/         @3d-det/devops
+# Shared packages
+/packages/three/          @hafizhuzaifaahmed
+/packages/ai/             @hafizhuzaifaahmed
+/packages/db/             @hafizhuzaifaahmed
+/packages/domain/         @hafizhuzaifaahmed
+/packages/contracts/      @hafizhuzaifaahmed
+/packages/ui/             @hafizhuzaifaahmed
+/packages/config/         @hafizhuzaifaahmed
 
-/database/                @3d-det/backend
-/infrastructure/          @3d-det/devops
-/.github/workflows/       @3d-det/devops
-/docker-compose.dev.yml   @3d-det/devops
+# Database, infrastructure and delivery
+/database/                @hafizhuzaifaahmed
+/infrastructure/          @hafizhuzaifaahmed
+/.github/workflows/       @hafizhuzaifaahmed
+/docker-compose.dev.yml   @hafizhuzaifaahmed
 
-/docs/architecture/       @3d-det/architect
-/docs/adr/                @3d-det/architect
-/docs/SECURITY.md         @3d-det/architect @3d-det/devops
+# Architecture and security documentation
+/docs/architecture/       @hafizhuzaifaahmed
+/docs/adr/                @hafizhuzaifaahmed
+/docs/SECURITY.md         @hafizhuzaifaahmed
