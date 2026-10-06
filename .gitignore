@@ -1,0 +1,112 @@
+# ---------- dependencies ----------
+node_modules/
+.pnpm-store/
+.pnp.*
+.yarn/
+
+# ---------- build output ----------
+dist/
+build/
+out/
+.output/
+*.tsbuildinfo
+
+# ---------- caches ----------
+.turbo/
+.cache/
+.vite/
+.eslintcache
+.parcel-cache/
+
+# ---------- test / coverage ----------
+coverage/
+.nyc_output/
+test-results/
+playwright-report/
+blob-report/
+
+# ---------- environment & secrets ----------
+.env
+.env.*
+!.env.example
+*.local
+
+# Credentials and keys - never commit
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+id_rsa
+id_ed25519
+*.ppk
+secrets.json
+secrets.yaml
+secrets.yml
+credentials
+credentials.json
+
+# Cloud provider credentials
+.aws/
+aws.json
+gcp-key.json
+azure.json
+service-account*.json
+
+# ---------- terraform ----------
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfvars.json
+!*.tfvars.example
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+
+# ---------- docker (local) ----------
+docker-compose.override.yml
+.docker/
+*.pid
+
+# ---------- logs ----------
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# ---------- editors ----------
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.example.json
+*.swp
+*.swo
+*.sublime-workspace
+*.sublime-project
+
+# ---------- operating system ----------
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# ---------- generated database types ----------
+# Regenerated from the authoritative database schema; see packages/db/README.md
+packages/db/generated/*.ts
+!packages/db/generated/.gitkeep

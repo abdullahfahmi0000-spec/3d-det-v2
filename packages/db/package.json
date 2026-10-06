@@ -1,0 +1,29 @@
+{
+  "name": "@3ddet/db",
+  "version": "0.0.0",
+  "private": true,
+  "description": "PostgreSQL access layer built on Kysely",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "lint": "eslint src",
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\""
+  },
+  "dependencies": {
+    "@3ddet/domain": "workspace:*",
+    "kysely": "^0.29.6",
+    "pg": "^8.23.1"
+  },
+  "devDependencies": {
+    "@3ddet/config": "workspace:*",
+    "@types/pg": "^8.15.6",
+    "typescript": "~6.0.3",
+    "vitest": "^5.0.3"
+  }
+}

@@ -1,0 +1,26 @@
+# Code owners. Teams must exist in the organisation before ownership takes effect;
+# see docs/development/github-setup.md.
+
+# Default: architecture review for anything not matched below.
+*                         @3d-det/architect
+
+/apps/web/                @3d-det/frontend
+/apps/api/                @3d-det/backend
+/apps/worker/             @3d-det/backend
+
+/packages/three/          @3d-det/three-d
+/packages/ai/             @3d-det/ai
+/packages/db/             @3d-det/backend
+/packages/domain/         @3d-det/backend
+/packages/contracts/      @3d-det/backend @3d-det/frontend
+/packages/ui/             @3d-det/frontend
+/packages/config/         @3d-det/devops
+
+/database/                @3d-det/backend
+/infrastructure/          @3d-det/devops
+/.github/workflows/       @3d-det/devops
+/docker-compose.dev.yml   @3d-det/devops
+
+/docs/architecture/       @3d-det/architect
+/docs/adr/                @3d-det/architect
+/docs/SECURITY.md         @3d-det/architect @3d-det/devops

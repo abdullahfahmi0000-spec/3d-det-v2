@@ -1,0 +1,11 @@
+/**
+ * Explicit success/failure value used across the domain layer instead of throwing for
+ * expected outcomes. Thrown errors are reserved for programming faults.
+ */
+export type Result<T, E = string> = { ok: true; value: T } | { ok: false; error: E };
+
+export const ok = <T>(value: T): Result<T, never> => ({ ok: true, value });
+
+export const err = <E>(error: E): Result<never, E> => ({ ok: false, error });
+
+export const isOk = <T, E>(result: Result<T, E>): result is { ok: true; value: T } => result.ok;

@@ -1,0 +1,32 @@
+{
+  "name": "@3ddet/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "3D.DET web application",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -p tsconfig.json --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "lint": "eslint src",
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\""
+  },
+  "dependencies": {
+    "@3ddet/contracts": "workspace:*",
+    "@3ddet/three": "workspace:*",
+    "@3ddet/ui": "workspace:*",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@3ddet/config": "workspace:*",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "typescript": "~6.0.3",
+    "vite": "^8.3.3",
+    "vitest": "^5.0.3"
+  }
+}

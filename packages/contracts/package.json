@@ -1,0 +1,26 @@
+{
+  "name": "@3ddet/contracts",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Shared API, domain and tool contracts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "lint": "eslint src",
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\""
+  },
+  "dependencies": {
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@3ddet/config": "workspace:*",
+    "typescript": "~6.0.3",
+    "vitest": "^5.0.3"
+  }
+}

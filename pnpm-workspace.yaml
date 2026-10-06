@@ -1,0 +1,9 @@
+packages:
+  - 'apps/*'
+  - 'packages/*'
+
+# Dependency build scripts are blocked by default. msgpackr-extract is an optional native
+# accelerator pulled in by BullMQ; it falls back to a pure JavaScript implementation, so its
+# install script is deliberately not run. Review before moving anything to onlyBuiltDependencies.
+ignoredBuiltDependencies:
+  - msgpackr-extract

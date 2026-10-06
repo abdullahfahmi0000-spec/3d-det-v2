@@ -1,0 +1,47 @@
+# =============================================================================
+# DEVELOPMENT ONLY. Not a production configuration, and not representative of one.
+#
+# - Credentials come from your local .env (see .env.example). Defaults below are
+#   placeholders for a disposable local database and must never be reused anywhere else.
+# - POSTGRES_USER is the container's bootstrap SUPERUSER. Superusers bypass Row-Level
+#   Security, so tenant isolation is NOT exercised when connecting as this user. The
+#   non-privileged application role and the production RLS policies are introduced with the
+#   approved database DDL. See database/README.md.
+# - The image includes the pgvector extension. It is available, not enabled; enabling it is
+#   part of the approved DDL.
+#
+# Usage:  docker compose -f docker-compose.dev.yml up -d
+# =============================================================================
+name: threeddet-dev
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DATABASE_NAME:-threeddet_dev}
+      POSTGRES_USER: ${DATABASE_USER:-threeddet_dev}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:-change_me_locally}
+    ports:
+      - '127.0.0.1:${DATABASE_PORT:-5432}:5432'
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:${REDIS_PORT:-6379}:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  postgres-data:

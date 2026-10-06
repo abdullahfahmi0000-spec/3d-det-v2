@@ -1,0 +1,29 @@
+# Normalise line endings to LF in the repository and in every working copy, on every
+# platform. Matches .editorconfig and the Prettier configuration.
+* text=auto eol=lf
+
+# Windows-only scripts keep CRLF.
+*.cmd text eol=crlf
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+
+# 3D assets and other binaries: never normalise, never diff as text.
+*.glb    binary
+*.ktx2   binary
+*.basis  binary
+*.drc    binary
+*.ifc    binary
+*.fbx    binary
+*.blend  binary
+*.png    binary
+*.jpg    binary
+*.jpeg   binary
+*.webp   binary
+*.hdr    binary
+*.exr    binary
+*.woff   binary
+*.woff2  binary
+*.pdf    binary
+
+# glTF JSON is text.
+*.gltf   text eol=lf

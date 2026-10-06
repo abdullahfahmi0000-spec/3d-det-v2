@@ -1,0 +1,29 @@
+{
+  "name": "@3ddet/worker",
+  "version": "0.0.0",
+  "private": true,
+  "description": "3D.DET background job worker",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/main.js",
+    "dev": "node --watch --enable-source-maps dist/main.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "lint": "eslint src",
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\""
+  },
+  "dependencies": {
+    "@3ddet/ai": "workspace:*",
+    "@3ddet/contracts": "workspace:*",
+    "@3ddet/db": "workspace:*",
+    "@3ddet/domain": "workspace:*",
+    "bullmq": "^6.3.11"
+  },
+  "devDependencies": {
+    "@3ddet/config": "workspace:*",
+    "@types/node": "^24.11.1",
+    "typescript": "~6.0.3",
+    "vitest": "^5.0.3"
+  }
+}

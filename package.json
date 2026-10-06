@@ -1,0 +1,33 @@
+{
+  "name": "3d-det-v2",
+  "version": "0.0.0",
+  "private": true,
+  "description": "3D.DET 2.0 platform monorepo",
+  "packageManager": "pnpm@10.18.2",
+  "engines": {
+    "node": ">=24.11.0",
+    "pnpm": ">=10.18.0"
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "check:boundaries": "node scripts/check-boundaries.mjs",
+    "clean": "turbo run clean && rimraf node_modules"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^24.11.1",
+    "eslint": "^10.12.0",
+    "globals": "^17.13.0",
+    "prettier": "^3.9.9",
+    "turbo": "^2.11.7",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.71.1",
+    "vitest": "^5.0.3"
+  }
+}

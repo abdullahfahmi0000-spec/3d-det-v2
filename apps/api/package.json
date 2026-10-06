@@ -1,0 +1,35 @@
+{
+  "name": "@3ddet/api",
+  "version": "0.0.0",
+  "private": true,
+  "description": "3D.DET API: NestJS modular monolith",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/main.js",
+    "dev": "node --watch --enable-source-maps dist/main.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "lint": "eslint src test",
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\""
+  },
+  "dependencies": {
+    "@3ddet/contracts": "workspace:*",
+    "@3ddet/db": "workspace:*",
+    "@3ddet/domain": "workspace:*",
+    "@nestjs/common": "^12.1.2",
+    "@nestjs/core": "^12.1.2",
+    "@nestjs/platform-express": "^12.1.2",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2"
+  },
+  "devDependencies": {
+    "@3ddet/config": "workspace:*",
+    "@nestjs/testing": "^12.1.2",
+    "@types/node": "^24.11.1",
+    "@types/supertest": "^6.0.3",
+    "supertest": "^7.3.1",
+    "typescript": "~6.0.3",
+    "vitest": "^5.0.3"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "extends": "@3ddet/config/tsconfig.lib.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "."
+  },
+  "include": ["src/**/*", "generated/**/*"],
+  "exclude": ["src/**/*.test.ts", "src/**/__tests__/**"]
+}

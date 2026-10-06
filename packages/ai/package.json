@@ -1,0 +1,27 @@
+{
+  "name": "@3ddet/ai",
+  "version": "0.0.0",
+  "private": true,
+  "description": "AI platform capabilities: provider abstraction, routing, tools, provenance",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "lint": "eslint src",
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\""
+  },
+  "dependencies": {
+    "@3ddet/contracts": "workspace:*",
+    "@3ddet/domain": "workspace:*"
+  },
+  "devDependencies": {
+    "@3ddet/config": "workspace:*",
+    "typescript": "~6.0.3",
+    "vitest": "^5.0.3"
+  }
+}
