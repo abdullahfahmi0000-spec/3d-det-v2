@@ -93,10 +93,12 @@ jobs:
           tar -xzf "${archive}" gitleaks
           ./gitleaks version
 
-      # Scans every commit reachable from the checkout, so a secret that was added and later
-      # deleted is still found. Findings are redacted in the log.
+      # Scans every commit reachable from the commit under test (for a pull request, the merge of
+      # the branch into main), so a secret that was added and later deleted is still found.
+      # Other branches are not scanned: a finding on someone else's branch must not fail this
+      # pull request. Findings are redacted in the log.
       - name: Scan git history for secrets
-        run: ./gitleaks git --config .gitleaks.toml --redact --verbose --exit-code 1 .
+        run: ./gitleaks git --config .gitleaks.toml --redact --verbose --exit-code 1 --log-opts="HEAD" .
 
   dependency-audit:
     name: dependency-audit

@@ -22,7 +22,7 @@
   },
   "devDependencies": {
     "@3ddet/config": "workspace:*",
-    "@types/node": "^26.6.5",
+    "@types/node": "^24.19.2",
     "typescript": "~6.0.3",
     "vitest": "^5.0.3"
   }

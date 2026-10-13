@@ -60,14 +60,14 @@ the above settings** as soon as that is no longer necessary.
 
 ## Code security settings
 
-| Setting                           | Target                                                                                        | Status                                         |
-| --------------------------------- | --------------------------------------------------------------------------------------------- | ---------------------------------------------- |
-| Dependency graph                  | On                                                                                            | Applied 2026-10-13                             |
-| Dependabot alerts                 | On                                                                                            | Applied 2026-10-13                             |
-| Malware alerts                    | On                                                                                            | Applied 2026-10-13                             |
-| Dependabot security updates       | On                                                                                            | Applied 2026-10-13                             |
-| Dependabot version updates        | `.github/dependabot.yml` (weekly, npm and GitHub Actions)                                     | In repository                                  |
-| Secret scanning / push protection | Not available for private repositories on a personal account without GitHub Advanced Security | Covered by the `secret-scan` CI job (gitleaks) |
+| Setting                           | Target                                                                                                                     | Status                                         |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| Dependency graph                  | On                                                                                                                         | Applied 2026-10-13                             |
+| Dependabot alerts                 | On                                                                                                                         | Applied 2026-10-13                             |
+| Malware alerts                    | On                                                                                                                         | Applied 2026-10-13                             |
+| Dependabot security updates       | On                                                                                                                         | Applied 2026-10-13                             |
+| Dependabot version updates        | `.github/dependabot.yml`: grouped; npm weekly (at most 2 PRs), GitHub Actions monthly (1 PR); `@types/node` majors ignored | In repository                                  |
+| Secret scanning / push protection | Not available for private repositories on a personal account without GitHub Advanced Security                              | Covered by the `secret-scan` CI job (gitleaks) |
 
 Each collaborator should also turn on **push protection for yourself** under their own GitHub
 account settings (**Settings → Code security → Push protection for yourself**). It blocks

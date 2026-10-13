@@ -2,14 +2,16 @@
 
 ## Workflow
 
-Work is planned in Jira (space **DET**). Every change starts from a Jira story or task in the
-current sprint; architectural changes start from a decision task (`DEC-…`) or an ADR.
+Work is planned in Jira (space **DET**). Every change starts from a Jira **task** (a sub-task of a
+story) in the current sprint; architectural changes start from a decision task (`DEC-…`) or an
+ADR.
 
 1. Move the Jira task to **In Progress** and assign it to yourself if it is not already.
-2. Branch from an up-to-date `main`, with the Jira key in the name:
+2. Branch from an up-to-date `main`, with the task's Jira key in the name:
    `feat/DET-123-short-description`, `fix/DET-123-…`, `chore/DET-123-…` or `docs/DET-123-…`.
-3. Keep the branch focused: one story or task per pull request. Tasks are sized at no more than
-   one working day, so a pull request should be reviewable in under 30 minutes. Split it if not.
+3. **One Jira task per pull request.** Tasks are sized at no more than one working day, so a pull
+   request should be reviewable in under 30 minutes. Split it if not. See
+   [Tasks, stories and pull requests](#tasks-stories-and-pull-requests).
 4. Run the checks locally: `pnpm lint && pnpm typecheck && pnpm test && pnpm check:boundaries`.
 5. Open a pull request using the template. The title is a Conventional Commit message ending
    with the Jira key, because the squash merge uses it as the commit on `main`:
@@ -20,6 +22,32 @@ current sprint; architectural changes start from a decision task (`DEC-…`) or 
 7. Move the Jira task to **Done** after the merge, with a link to the pull request.
 
 `main` is protected. Nothing is pushed to it directly, and history on `main` is never rewritten.
+
+## Tasks, stories and pull requests
+
+| Jira item                  | Pull request?                                                                  | Done when                                                                                                                      |
+| -------------------------- | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| **Task** (sub-task, ≤ 8 h) | Yes: one pull request per task, raised by the person assigned to it            | Its pull request is merged into `main`                                                                                         |
+| **Task that is not code**  | No (decision briefs, reviews, meetings, UAT sessions, content written in Jira) | The outcome is recorded on the task (comment, document or link)                                                                |
+| **Story**                  | No pull request of its own                                                     | Every task is Done **and** the story owner has checked each acceptance criterion on `main`, with evidence in a closing comment |
+
+- **Coupled tasks.** Two tasks by the same person that cannot be merged separately may share one
+  pull request if together they stay within about a day of work. Put both keys in the title:
+  `feat(ai): snapshot reader with pattern tests (DET-708, DET-1387)`.
+- **Several people on one story.** Each person raises pull requests for their own tasks; nobody
+  waits for a story-sized branch.
+- **Partly built stories on `main`.** Merged tasks of an unfinished story must not break or expose
+  half a feature: keep it out of navigation or behind a configuration switch until the story is
+  done, so `main` is always demo-ready.
+- **Linking.** Jira picks up the `DET-…` key from the branch name, commit messages and pull
+  request title (GitHub for Jira), so the task shows its branch, pull request and CI status.
+
+## Dependency update pull requests
+
+Dependabot opens grouped pull requests: at most two npm groups a week (minor/patch and major) and
+one GitHub Actions group a month, plus security fixes whenever an advisory is published. The
+repository owner and the CMS lead review them on Monday: merge when the three checks pass; for a
+major group, read the release notes and check the build output before approving.
 
 ## Required checks
 

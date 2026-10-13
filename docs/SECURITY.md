@@ -58,7 +58,7 @@ missing. Secrets never have default values in code.
 | Secret-bearing files                   | CI job `secret-scan`, first step                  | Any tracked `.env`/`.env.*` (except `.env.example`), key, certificate, Terraform state or cloud credential file fails the build and is named |
 | Secret scanning                        | CI job `secret-scan` (gitleaks, `.gitleaks.toml`) | Scans the full git history on every pull request; a finding blocks the merge                                                                 |
 | Dependency audit                       | CI job `dependency-audit` (`pnpm audit`)          | High or critical advisories block the merge; also runs weekly on `main`                                                                      |
-| Dependency updates                     | Dependabot (`.github/dependabot.yml`)             | Weekly version updates for npm packages and GitHub Actions                                                                                   |
+| Dependency updates                     | Dependabot (`.github/dependabot.yml`)             | Grouped updates: npm weekly (at most two pull requests), GitHub Actions monthly (one)                                                        |
 | Dependabot alerts and security updates | Repository Code security settings                 | Alerts on published advisories and opens fix pull requests                                                                                   |
 | Branch protection on `main`            | Repository settings                               | Pull request, approval, and all three checks required                                                                                        |
 

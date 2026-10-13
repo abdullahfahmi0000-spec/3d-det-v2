@@ -7,3 +7,9 @@ packages:
 # install script is deliberately not run. Review before moving anything to onlyBuiltDependencies.
 ignoredBuiltDependencies:
   - msgpackr-extract
+
+# Node type definitions follow the Node runtime line (.nvmrc, Node 24). Without this override,
+# packages that receive @types/node only as a peer (vite, vitest, @types/pg) resolve the newest
+# major, whose typings describe APIs Node 24 does not have.
+overrides:
+  '@types/node': ^24.19.2
