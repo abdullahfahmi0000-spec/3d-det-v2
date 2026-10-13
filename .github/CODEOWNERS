@@ -1,34 +1,49 @@
-# Code owners.
+# Code owners, mapped to the three delivery pods.
 #
-# The repository belongs to the personal account @hafizhuzaifaahmed. Personal accounts have no
-# teams, so ownership is assigned to individual collaborators. Every area is owned by the
-# repository owner until collaborators join; then add each collaborator's handle on the lines
-# for the areas they own. See docs/development/github-setup.md.
+# The repository belongs to the personal account @hafizhuzaifaahmed, which has no GitHub teams,
+# so owners are individual collaborators. Each section below is one pod. Until a pod's members
+# are collaborators with Write access, the repository owner stands in for them; then add each
+# member's handle to that pod's lines (lead first). GitHub ignores owners without Write access.
+# See docs/development/github-setup.md.
+#
+#   CMS pod  - lead Muhammad Sharjeel; Basit, Saad Ilyas
+#   3D pod   - lead Abdullah AbdulKareem; Salah ud din Sani, Huzaifa Ahmed
+#   AI pod   - lead Hafiz Huzaifa Ahmed; Abdur Rafay, Faizan Ali
+#
+# Order matters: the last matching pattern wins, so the general rule comes first.
 
 # Default owner for anything not matched below.
 *                         @hafizhuzaifaahmed
 
-# Applications
+# ---- CMS pod: web application, API, worker, data access, domain, database ----
 /apps/web/                @hafizhuzaifaahmed
 /apps/api/                @hafizhuzaifaahmed
 /apps/worker/             @hafizhuzaifaahmed
-
-# Shared packages
-/packages/three/          @hafizhuzaifaahmed
-/packages/ai/             @hafizhuzaifaahmed
+/packages/ui/             @hafizhuzaifaahmed
 /packages/db/             @hafizhuzaifaahmed
 /packages/domain/         @hafizhuzaifaahmed
-/packages/contracts/      @hafizhuzaifaahmed
-/packages/ui/             @hafizhuzaifaahmed
-/packages/config/         @hafizhuzaifaahmed
-
-# Database, infrastructure and delivery
 /database/                @hafizhuzaifaahmed
-/infrastructure/          @hafizhuzaifaahmed
-/.github/workflows/       @hafizhuzaifaahmed
-/docker-compose.dev.yml   @hafizhuzaifaahmed
+/docs/api/                @hafizhuzaifaahmed
 
-# Architecture and security documentation
+# ---- 3D pod: viewer, scene, assets ----
+/packages/three/          @hafizhuzaifaahmed
+
+# ---- AI pod: provider layer, Director, dialogue, tools ----
+/packages/ai/             @hafizhuzaifaahmed
+
+# ---- Shared contracts: changes need the CMS pod and the consuming pods ----
+/packages/contracts/      @hafizhuzaifaahmed
+
+# ---- Platform: infrastructure, CI, repository configuration (repository owner + CMS lead) ----
+/infrastructure/          @hafizhuzaifaahmed
+/.github/                 @hafizhuzaifaahmed
+/docker-compose.dev.yml   @hafizhuzaifaahmed
+/packages/config/         @hafizhuzaifaahmed
+/scripts/                 @hafizhuzaifaahmed
+/.gitleaks.toml           @hafizhuzaifaahmed
+
+# ---- Architecture and security documentation (repository owner + pod leads) ----
 /docs/architecture/       @hafizhuzaifaahmed
 /docs/adr/                @hafizhuzaifaahmed
 /docs/SECURITY.md         @hafizhuzaifaahmed
+/docs/security/           @hafizhuzaifaahmed

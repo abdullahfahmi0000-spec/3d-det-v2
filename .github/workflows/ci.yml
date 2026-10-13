@@ -4,6 +4,10 @@ on:
   pull_request:
   push:
     branches: [main]
+  # Weekly run on main so newly published advisories are caught even when nothing changes.
+  schedule:
+    - cron: '0 1 * * 1' # Monday 06:00 Asia/Karachi
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -14,6 +18,7 @@ concurrency:
 
 env:
   TURBO_TELEMETRY_DISABLED: '1'
+  GITLEAKS_VERSION: '8.21.2'
 
 jobs:
   verify:
@@ -50,3 +55,54 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+  secret-scan:
+    name: secret-scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out (full history)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install gitleaks
+        run: |
+          set -euo pipefail
+          base="https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}"
+          archive="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl -fsSLO "${base}/${archive}"
+          curl -fsSLO "${base}/gitleaks_${GITLEAKS_VERSION}_checksums.txt"
+          grep " ${archive}\$" "gitleaks_${GITLEAKS_VERSION}_checksums.txt" | sha256sum --check --strict
+          tar -xzf "${archive}" gitleaks
+          ./gitleaks version
+
+      # Scans every commit reachable from the checkout, so a secret that was added and later
+      # deleted is still found. Findings are redacted in the log.
+      - name: Scan git history for secrets
+        run: ./gitleaks git --config .gitleaks.toml --redact --verbose --exit-code 1 .
+
+  dependency-audit:
+    name: dependency-audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      # Fails on high and critical advisories in any dependency, including development tools.
+      # Accepted exceptions are recorded in docs/security/dependency-audit.md.
+      - name: Audit dependencies (fail on high or critical)
+        run: pnpm audit --audit-level high

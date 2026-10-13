@@ -2,16 +2,56 @@
 
 ## Workflow
 
-1. Open or pick up an issue. Architectural changes start with an _Architecture decision_ issue.
-2. Branch from `main`: `feat/<short-description>`, `fix/<short-description>`,
-   `chore/<short-description>` or `docs/<short-description>`.
-3. Keep the branch focused: one change per pull request.
-4. Run the checks locally: `pnpm lint && pnpm typecheck && pnpm test && pnpm check:boundaries`.
-5. Open a pull request using the template. Fill in every impact section, writing "None"
-   where nothing changes.
-6. Merge after CI passes and a code owner approves. Pull requests are squash-merged.
+Work is planned in Jira (space **DET**). Every change starts from a Jira story or task in the
+current sprint; architectural changes start from a decision task (`DEC-…`) or an ADR.
 
-`main` is protected. Nothing is pushed to it directly.
+1. Move the Jira task to **In Progress** and assign it to yourself if it is not already.
+2. Branch from an up-to-date `main`, with the Jira key in the name:
+   `feat/DET-123-short-description`, `fix/DET-123-…`, `chore/DET-123-…` or `docs/DET-123-…`.
+3. Keep the branch focused: one story or task per pull request. Tasks are sized at no more than
+   one working day, so a pull request should be reviewable in under 30 minutes. Split it if not.
+4. Run the checks locally: `pnpm lint && pnpm typecheck && pnpm test && pnpm check:boundaries`.
+5. Open a pull request using the template. The title is a Conventional Commit message ending
+   with the Jira key, because the squash merge uses it as the commit on `main`:
+   `feat(api): add organisation node endpoint (DET-123)`. Fill in every impact section, writing
+   "None" where nothing changes.
+6. Request review from the code owners GitHub suggests. Merge once all required checks pass and
+   the reviews below are in. Pull requests are squash-merged and the branch is deleted.
+7. Move the Jira task to **Done** after the merge, with a link to the pull request.
+
+`main` is protected. Nothing is pushed to it directly, and history on `main` is never rewritten.
+
+## Required checks
+
+Every pull request must pass these CI jobs before it can merge:
+
+| Check              | What it does                                                      |
+| ------------------ | ----------------------------------------------------------------- |
+| `verify`           | Boundaries, lint, type check, tests and build across the monorepo |
+| `secret-scan`      | gitleaks over the full git history; any finding fails the build   |
+| `dependency-audit` | `pnpm audit`; any high or critical advisory fails the build       |
+
+A failing `secret-scan` means a secret was committed: rotate it first, then follow
+[`docs/SECURITY.md`](docs/SECURITY.md). A failing `dependency-audit` is handled as described in
+[`docs/security/dependency-audit.md`](docs/security/dependency-audit.md).
+
+## Review rules
+
+- **Who approves.** At least one approval from a code owner of every area the pull request
+  touches. Code owners follow the pods: CMS (`apps/`, `packages/db`, `packages/domain`,
+  `packages/ui`, `database/`), 3D (`packages/three`), AI (`packages/ai`). See
+  [`.github/CODEOWNERS`](.github/CODEOWNERS).
+- **Shared contracts need both sides.** A change to `packages/contracts` needs approval from the
+  CMS pod and from every pod that consumes the changed contract.
+- **Juniors' work is reviewed by a senior.** When someone works outside their own pod for a sprint,
+  the senior of the pod that owns the code reviews it.
+- **Turnaround.** Reviewers respond within one working day. The author resolves every
+  conversation before merging; unresolved conversations block the merge.
+- **New commits dismiss earlier approvals.** Re-request review after pushing changes.
+- **What reviewers check:** the rules below, tests for the behaviour changed, the impact sections
+  of the template, and that the change matches its Jira task and nothing more.
+- **Security-sensitive changes** (authentication, permissions, RLS policies, secrets handling,
+  CI configuration) also need the repository owner's approval.
 
 ## Commit messages
 

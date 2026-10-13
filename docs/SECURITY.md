@@ -51,6 +51,22 @@ missing. Secrets never have default values in code.
   reviewers.
 - Pull requests from forks do not receive secrets.
 
+## Automated checks
+
+| Control                                | Where                                             | Effect                                                                       |
+| -------------------------------------- | ------------------------------------------------- | ---------------------------------------------------------------------------- |
+| Secret scanning                        | CI job `secret-scan` (gitleaks, `.gitleaks.toml`) | Scans the full git history on every pull request; a finding blocks the merge |
+| Dependency audit                       | CI job `dependency-audit` (`pnpm audit`)          | High or critical advisories block the merge; also runs weekly on `main`      |
+| Dependency updates                     | Dependabot (`.github/dependabot.yml`)             | Weekly version updates for npm packages and GitHub Actions                   |
+| Dependabot alerts and security updates | Repository Code security settings                 | Alerts on published advisories and opens fix pull requests                   |
+| Branch protection on `main`            | Repository settings                               | Pull request, approval, and all three checks required                        |
+
+The `.gitleaks.toml` allowlist covers the lockfile only. Do not add allowlist entries to make a
+finding go away: a real finding means the secret is compromised and must be rotated.
+
+Accepted dependency-audit exceptions, and the audit history, are kept in
+[`docs/security/dependency-audit.md`](security/dependency-audit.md).
+
 ## Reporting a vulnerability
 
 Report suspected vulnerabilities privately to the repository maintainers rather than in a

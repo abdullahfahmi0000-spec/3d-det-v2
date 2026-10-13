@@ -1,0 +1,13 @@
+# gitleaks configuration for the secret-scan CI job.
+# Uses the full default rule set; only the lockfile is excluded, because its integrity hashes
+# are high-entropy strings by design. Do not add allowlist entries for real files: a finding in
+# source, configuration or documentation means a secret must be rotated, not ignored.
+
+title = "3D.DET 2.0 secret scanning"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Package lockfile integrity hashes"
+paths = ['''(^|/)pnpm-lock\.yaml$''']
