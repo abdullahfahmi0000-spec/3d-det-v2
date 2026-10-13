@@ -1,14 +1,15 @@
 # Code owners, mapped to the three delivery pods.
 #
-# The repository belongs to the personal account @hafizhuzaifaahmed, which has no GitHub teams,
-# so owners are individual collaborators. Each section below is one pod. Until a pod's members
-# are collaborators with Write access, the repository owner stands in for them; then add each
-# member's handle to that pod's lines (lead first). GitHub ignores owners without Write access.
-# See docs/development/github-setup.md.
+# Owners are the pod leads (seniors), so "review from code owners" means a senior approves every
+# change in their area. The repository owner is listed as a backup on the CMS and 3D areas so a
+# lead's absence never blocks a merge. Pod members review each other's work as well, but their
+# approval does not replace the lead's. See CONTRIBUTING.md and docs/development/github-setup.md.
 #
-#   CMS pod  - lead Muhammad Sharjeel; Basit, Saad Ilyas
-#   3D pod   - lead Abdullah AbdulKareem; Salah ud din Sani, Huzaifa Ahmed
-#   AI pod   - lead Hafiz Huzaifa Ahmed; Abdur Rafay, Faizan Ali
+#   CMS pod  - lead @mxsharjeel (Muhammad Sharjeel); members @basitali0318 (Basit), @Saad-Ilyas90 (Saad Ilyas)
+#   3D pod   - lead @abdullahfahmi0000-spec (Abdullah AbdulKareem); members @salahuddinsani10 (Salah ud din Sani),
+#              @huzaifaahmed2004 (Huzaifa Ahmed)
+#   AI pod   - lead @hafizhuzaifaahmed (Hafiz Huzaifa Ahmed); members @AbdurRafaybahria (Abdur Rafay),
+#              @faizanali01dev (Faizan Ali)
 #
 # Order matters: the last matching pattern wins, so the general rule comes first.
 
@@ -16,34 +17,34 @@
 *                         @hafizhuzaifaahmed
 
 # ---- CMS pod: web application, API, worker, data access, domain, database ----
-/apps/web/                @hafizhuzaifaahmed
-/apps/api/                @hafizhuzaifaahmed
-/apps/worker/             @hafizhuzaifaahmed
-/packages/ui/             @hafizhuzaifaahmed
-/packages/db/             @hafizhuzaifaahmed
-/packages/domain/         @hafizhuzaifaahmed
-/database/                @hafizhuzaifaahmed
-/docs/api/                @hafizhuzaifaahmed
+/apps/web/                @mxsharjeel @hafizhuzaifaahmed
+/apps/api/                @mxsharjeel @hafizhuzaifaahmed
+/apps/worker/             @mxsharjeel @hafizhuzaifaahmed
+/packages/ui/             @mxsharjeel @hafizhuzaifaahmed
+/packages/db/             @mxsharjeel @hafizhuzaifaahmed
+/packages/domain/         @mxsharjeel @hafizhuzaifaahmed
+/database/                @mxsharjeel @hafizhuzaifaahmed
+/docs/api/                @mxsharjeel @hafizhuzaifaahmed
 
 # ---- 3D pod: viewer, scene, assets ----
-/packages/three/          @hafizhuzaifaahmed
+/packages/three/          @abdullahfahmi0000-spec @hafizhuzaifaahmed
 
 # ---- AI pod: provider layer, Director, dialogue, tools ----
 /packages/ai/             @hafizhuzaifaahmed
 
-# ---- Shared contracts: changes need the CMS pod and the consuming pods ----
-/packages/contracts/      @hafizhuzaifaahmed
+# ---- Shared contracts: owned by all three leads ----
+/packages/contracts/      @mxsharjeel @abdullahfahmi0000-spec @hafizhuzaifaahmed
 
-# ---- Platform: infrastructure, CI, repository configuration (repository owner + CMS lead) ----
-/infrastructure/          @hafizhuzaifaahmed
-/.github/                 @hafizhuzaifaahmed
-/docker-compose.dev.yml   @hafizhuzaifaahmed
-/packages/config/         @hafizhuzaifaahmed
-/scripts/                 @hafizhuzaifaahmed
+# ---- Platform: infrastructure, CI, repository configuration ----
+/infrastructure/          @hafizhuzaifaahmed @mxsharjeel
+/.github/                 @hafizhuzaifaahmed @mxsharjeel
+/docker-compose.dev.yml   @hafizhuzaifaahmed @mxsharjeel
+/packages/config/         @hafizhuzaifaahmed @mxsharjeel
+/scripts/                 @hafizhuzaifaahmed @mxsharjeel
 /.gitleaks.toml           @hafizhuzaifaahmed
 
-# ---- Architecture and security documentation (repository owner + pod leads) ----
-/docs/architecture/       @hafizhuzaifaahmed
-/docs/adr/                @hafizhuzaifaahmed
+# ---- Architecture and security documentation ----
+/docs/architecture/       @hafizhuzaifaahmed @mxsharjeel @abdullahfahmi0000-spec
+/docs/adr/                @hafizhuzaifaahmed @mxsharjeel @abdullahfahmi0000-spec
 /docs/SECURITY.md         @hafizhuzaifaahmed
 /docs/security/           @hafizhuzaifaahmed

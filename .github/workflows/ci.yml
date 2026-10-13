@@ -66,6 +66,22 @@ jobs:
         with:
           fetch-depth: 0
 
+      # Secret-bearing files are rejected by name, whatever they contain: an .env file with
+      # harmless-looking values is still a file that must never be committed.
+      - name: Reject secret-bearing files
+        run: |
+          set -euo pipefail
+          pattern='(^|/)\.env(\.[^/]*)?$|\.(pem|key|p12|pfx|jks|keystore)$|(^|/)id_(rsa|dsa|ecdsa|ed25519)$|\.tfstate(\.backup)?$|(^|/)\.aws/credentials$'
+          found=$(git ls-files | grep -E "$pattern" | grep -vE '(^|/)\.env\.example$' || true)
+          if [ -n "$found" ]; then
+            while IFS= read -r file; do
+              echo "::error file=${file}::Secret-bearing file committed: ${file}"
+            done <<< "$found"
+            echo "Remove these files, rotate anything they contained, and see docs/SECURITY.md."
+            exit 1
+          fi
+          echo "No secret-bearing files tracked."
+
       - name: Install gitleaks
         run: |
           set -euo pipefail

@@ -38,8 +38,10 @@ A failing `secret-scan` means a secret was committed: rotate it first, then foll
 ## Review rules
 
 - **Who approves.** At least one approval from a code owner of every area the pull request
-  touches. Code owners follow the pods: CMS (`apps/`, `packages/db`, `packages/domain`,
-  `packages/ui`, `database/`), 3D (`packages/three`), AI (`packages/ai`). See
+  touches. The code owners are the pod leads: CMS `@mxsharjeel` (`apps/`, `packages/db`,
+  `packages/domain`, `packages/ui`, `database/`), 3D `@abdullahfahmi0000-spec`
+  (`packages/three`), AI `@hafizhuzaifaahmed` (`packages/ai`). Pod members review each other's
+  work too, but their approval does not replace the lead's. See
   [`.github/CODEOWNERS`](.github/CODEOWNERS).
 - **Shared contracts need both sides.** A change to `packages/contracts` needs approval from the
   CMS pod and from every pod that consumes the changed contract.

@@ -9,25 +9,24 @@ The repository is `hafizhuzaifaahmed/3d-det-v2`, owned by the personal account
 ## Code owners
 
 Personal accounts have no teams, so `CODEOWNERS` names individual people, grouped by the three
-delivery pods. Every area is owned by `@hafizhuzaifaahmed` until the pod members are
-collaborators.
+delivery pods. The **pod leads** are the code owners, so a required code-owner review is always a
+senior's approval. The repository owner is a backup owner on the CMS and 3D areas.
 
-| Pod      | Lead                         | Members                          | Paths                                                                                                                  |
-| -------- | ---------------------------- | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| CMS      | Muhammad Sharjeel            | Basit, Saad Ilyas                | `apps/web/`, `apps/api/`, `apps/worker/`, `packages/ui/`, `packages/db/`, `packages/domain/`, `database/`, `docs/api/` |
-| 3D       | Abdullah AbdulKareem         | Salah ud din Sani, Huzaifa Ahmed | `packages/three/`                                                                                                      |
-| AI       | Hafiz Huzaifa Ahmed          | Abdur Rafay, Faizan Ali          | `packages/ai/`                                                                                                         |
-| Shared   | CMS lead + consuming pods    |                                  | `packages/contracts/`                                                                                                  |
-| Platform | Repository owner + CMS lead  |                                  | `infrastructure/`, `.github/`, `docker-compose.dev.yml`, `packages/config/`, `scripts/`, `.gitleaks.toml`              |
-| Docs     | Repository owner + pod leads |                                  | `docs/architecture/`, `docs/adr/`, `docs/SECURITY.md`, `docs/security/`                                                |
+| Pod      | Lead (code owner)                              | Members                                                                  | Paths                                                                                                                  |
+| -------- | ---------------------------------------------- | ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
+| CMS      | Muhammad Sharjeel `@mxsharjeel`                | Basit `@basitali0318`, Saad Ilyas `@Saad-Ilyas90`                        | `apps/web/`, `apps/api/`, `apps/worker/`, `packages/ui/`, `packages/db/`, `packages/domain/`, `database/`, `docs/api/` |
+| 3D       | Abdullah AbdulKareem `@abdullahfahmi0000-spec` | Salah ud din Sani `@salahuddinsani10`, Huzaifa Ahmed `@huzaifaahmed2004` | `packages/three/`                                                                                                      |
+| AI       | Hafiz Huzaifa Ahmed `@hafizhuzaifaahmed`       | Abdur Rafay `@AbdurRafaybahria`, Faizan Ali `@faizanali01dev`            | `packages/ai/`                                                                                                         |
+| Shared   | All three leads                                |                                                                          | `packages/contracts/`                                                                                                  |
+| Platform | Repository owner + CMS lead                    |                                                                          | `infrastructure/`, `.github/`, `docker-compose.dev.yml`, `packages/config/`, `scripts/`                                |
+| Docs     | Repository owner + CMS and 3D leads            |                                                                          | `docs/architecture/`, `docs/adr/`; security docs and `.gitleaks.toml` stay with the repository owner                   |
 
-When a pod member joins:
+All eight team members are collaborators with Write access (accepted 2026-10-13). When someone
+joins or leaves:
 
-1. Invite them under **Settings → Collaborators** with **Write** access. GitHub ignores a
-   code owner who cannot write to the repository.
-2. Add their handle to their pod's lines in `CODEOWNERS` (lead first), through a pull request.
-3. Once at least one collaborator other than the owner can review, turn on **Require review
-   from code owners** (below).
+1. Invite them under **Settings → Collaborators** (Write access), or remove them there.
+2. Update `CODEOWNERS` and this table through a pull request. GitHub ignores a code owner who
+   cannot write to the repository.
 
 ## Branch protection for `main`
 
