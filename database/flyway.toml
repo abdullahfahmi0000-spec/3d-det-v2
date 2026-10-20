@@ -1,0 +1,26 @@
+# Flyway configuration for the 3D.DET schema, shared by local development, CI and every
+# deployed environment. Run Flyway with this directory as its working directory.
+#
+# Connection settings are never stored here. Each environment supplies FLYWAY_URL,
+# FLYWAY_USER and FLYWAY_PASSWORD; the user is the migration role, never the application role.
+
+[flyway]
+# Version 1 is the baseline (client DDL V62): tables by family in ddl/, then foreign keys,
+# indexes, roles and Row-Level Security. Later changes are forward-only migrations.
+locations = ["filesystem:ddl", "filesystem:policies", "filesystem:migrations"]
+
+# Applied migrations are recorded here, with a checksum of each file.
+table = "_migrations"
+
+# `flyway clean` drops every object in the schema. It is the reset this project must never
+# allow, so it is disabled for every environment, local included (use `docker compose down -v`
+# to discard a local database instead).
+cleanDisabled = true
+
+# Refuse to run if an applied migration was edited, renamed or deleted, or if a file name does
+# not follow V<version>__<description>.sql / R__<description>.sql.
+validateOnMigrate = true
+validateMigrationNaming = true
+
+# A migration older than the latest applied version is an error, not something to slip in.
+outOfOrder = false

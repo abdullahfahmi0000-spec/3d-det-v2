@@ -11,26 +11,48 @@
 #   part of the approved DDL.
 #
 # Usage:  docker compose -f docker-compose.dev.yml up -d
+#         docker compose -f docker-compose.dev.yml run --rm flyway migrate   (apply the schema)
+#         docker compose -f docker-compose.dev.yml down -v                    (discard all local data)
 # =============================================================================
 name: threeddet-dev
 
 services:
   postgres:
-    image: pgvector/pgvector:pg16
+    image: pgvector/pgvector:pg18
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${DATABASE_NAME:-threeddet_dev}
       POSTGRES_USER: ${DATABASE_USER:-threeddet_dev}
       POSTGRES_PASSWORD: ${DATABASE_PASSWORD:-change_me_locally}
+      # Defaults for psql run inside the container (`docker compose exec postgres psql`).
+      PGUSER: ${DATABASE_USER:-threeddet_dev}
+      PGDATABASE: ${DATABASE_NAME:-threeddet_dev}
     ports:
       - '127.0.0.1:${DATABASE_PORT:-5432}:5432'
     volumes:
-      - postgres-data:/var/lib/postgresql/data
+      - postgres-data:/var/lib/postgresql
+      - ./tests/integration/schema:/checks:ro
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}']
       interval: 5s
       timeout: 5s
       retries: 10
+
+  # Applies database/ to the local database. Runs only when called; never started by `up`.
+  # The same image and database/flyway.toml are used by CI and by every deployed environment.
+  flyway:
+    image: flyway/flyway:13.9.0-alpine
+    profiles: ['tools']
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      FLYWAY_URL: jdbc:postgresql://postgres:5432/${DATABASE_NAME:-threeddet_dev}
+      FLYWAY_USER: ${DATABASE_USER:-threeddet_dev}
+      FLYWAY_PASSWORD: ${DATABASE_PASSWORD:-change_me_locally}
+    volumes:
+      - ./database:/flyway/project:ro
+    entrypoint: ['flyway', '-workingDirectory=/flyway/project']
 
   redis:
     image: redis:7-alpine

@@ -24,6 +24,7 @@
 /packages/db/             @mxsharjeel @hafizhuzaifaahmed
 /packages/domain/         @mxsharjeel @hafizhuzaifaahmed
 /database/                @mxsharjeel @hafizhuzaifaahmed
+/.squawk.toml             @mxsharjeel @hafizhuzaifaahmed
 /docs/api/                @mxsharjeel @hafizhuzaifaahmed
 
 # ---- 3D pod: viewer, scene, assets ----

@@ -124,3 +124,22 @@ jobs:
       # Accepted exceptions are recorded in docs/security/dependency-audit.md.
       - name: Audit dependencies (fail on high or critical)
         run: pnpm audit --audit-level high
+
+  schema:
+    name: schema
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+
+      # DAT-09: a destructive migration fails here, so it cannot reach main or any environment
+      # deployed from it. Exceptions are reviewed squawk-ignore comments (database/README.md).
+      - name: Lint migrations
+        uses: ./.github/actions/lint-migrations
+
+      # DAT-08 and the migration runner: builds the schema twice from empty databases, checks the
+      # object counts and that the builds are identical, then idempotence, ordering, history and
+      # the destructive-statement guard. The same script runs locally.
+      - name: Schema and migration-runner tests
+        run: bash tests/integration/schema/run-tests.sh

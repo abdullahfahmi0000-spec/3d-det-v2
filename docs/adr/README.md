@@ -7,6 +7,7 @@
 | [ADR-003](ADR-003-frontend-react-vite.md)  | React + Vite + TypeScript frontend        | Proposed (recommended)                  |
 | [ADR-004](ADR-004-modular-monolith.md)     | NestJS + TypeScript modular monolith      | Proposed (recommended)                  |
 | [ADR-005](ADR-005-ai-tool-architecture.md) | AI tool architecture                      | Accepted direction; implementation open |
+| [ADR-006](ADR-006-schema-migrations.md)    | Schema migrations: Flyway + Squawk        | Proposed (recommended)                  |
 
 ## Writing an ADR
 

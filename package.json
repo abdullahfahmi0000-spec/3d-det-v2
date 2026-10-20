@@ -17,6 +17,10 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "check:boundaries": "node scripts/check-boundaries.mjs",
+    "db:migrate:local": "docker compose -f docker-compose.dev.yml run --rm flyway migrate",
+    "db:info:local": "docker compose -f docker-compose.dev.yml run --rm flyway info",
+    "test:schema": "bash tests/integration/schema/run-tests.sh",
+    "db:check:local":"docker compose -f docker-compose.dev.yml exec -T postgres psql -v ON_ERROR_STOP=1 -f /checks/schema-baseline.sql",
     "clean": "turbo run clean && rimraf node_modules"
   },
   "devDependencies": {

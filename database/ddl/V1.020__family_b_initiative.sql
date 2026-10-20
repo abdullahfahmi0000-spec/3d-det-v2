@@ -1,0 +1,52 @@
+-- 3D.DET baseline schema, client DDL V62 (Flyway version 1).
+-- Converted from database/source/ddl-postgresql-v62.sql; see database/README.md.
+-- Once applied to a shared environment this file must never change (Flyway checksums it):
+-- every later schema change is a new migration in database/migrations/.
+--
+-- Family B — Initiative: 2 table(s).
+-- Foreign keys are added by V1.200 once every table exists, so a table may reference
+-- a table of any family, whichever file creates it.
+
+-- 12. INITIATIVE_MASTER
+CREATE TABLE INITIATIVE_MASTER (
+    INITIATIVE_ID BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    INITIATIVE_CODE VARCHAR(50) NOT NULL,
+    NAME VARCHAR(255) NOT NULL,
+    TYPE VARCHAR(23) CHECK (TYPE IN ('PROGRAM','INITIATIVE','PROJECT','SUB_PROJECT','ACCOUNT','COMMUNITY_OF_PRACTICE','TASK_FORCE','COMMITTEE_TEMPORARY')) NOT NULL,
+    DESCRIPTION TEXT,
+    SPONSOR_PERSON_ID BIGINT,
+    DIRECTOR_PERSON_ID BIGINT,
+    BUDGET DECIMAL(18,2),
+    BUDGET_CURRENCY VARCHAR(3),
+    OBJECTIVES JSONB,
+    SCOPE VARCHAR(18) CHECK (SCOPE IN ('GROUP_WIDE','REGIONAL','COUNTRY','FUNCTION_WIDE','SITE_SPECIFIC','CROSS_FUNCTIONAL')),
+    START_DATE DATE NOT NULL,
+    PLANNED_END_DATE DATE,
+    ACTUAL_END_DATE DATE,
+    STATUS VARCHAR(13) CHECK (STATUS IN ('Planned','Mobilizing','In_Progress','Suspended','Completed','Cancelled')) DEFAULT 'Planned',
+    LIFECYCLE_STAGE_INITIATIVE VARCHAR(14) CHECK (LIFECYCLE_STAGE_INITIATIVE IN ('Concept','Mobilization','Execution','Closure','Archived')),
+    PM_TOOL_TYPE VARCHAR(12) CHECK (PM_TOOL_TYPE IN ('UPPWISE','Spring','MS_Project','Jira','Asana','ClickUp','Monday','Internal','None')) DEFAULT 'None',
+    PM_TOOL_PROJECT_ID VARCHAR(255),
+    ATTACHED_NODE_ID BIGINT,
+    ATTRIBUTES_JSON JSONB,
+    TENANT_ID BIGINT NOT NULL,
+    SCENARIO_ID BIGINT NOT NULL DEFAULT 0,
+    CONSTRAINT uk_initiative_code_tenant UNIQUE (INITIATIVE_CODE, TENANT_ID, SCENARIO_ID)
+);
+
+-- 13. INITIATIVE_LINK
+CREATE TABLE INITIATIVE_LINK (
+    ILINK_ID BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    TENANT_ID BIGINT NOT NULL,
+    SCENARIO_ID BIGINT NOT NULL DEFAULT 0,
+    PARENT_INITIATIVE_ID BIGINT NOT NULL,
+    CHILD_INITIATIVE_ID BIGINT NOT NULL,
+    SEQUENCE INT NOT NULL DEFAULT 1,
+    VALID_FROM DATE NOT NULL,
+    VALID_TO DATE,
+    LINK_TYPE VARCHAR(14) CHECK (LINK_TYPE IN ('Hierarchical','Logical','Dependency')) DEFAULT 'Hierarchical',
+    DEPENDENCY_TYPE VARCHAR(18) CHECK (DEPENDENCY_TYPE IN ('Finish_to_Start','Start_to_Start','Finish_to_Finish')),
+    NOTES TEXT,
+    CONSTRAINT uk_ilink_logical UNIQUE (PARENT_INITIATIVE_ID, CHILD_INITIATIVE_ID, SEQUENCE, VALID_FROM),
+    CONSTRAINT chk_ilink_no_self CHECK (PARENT_INITIATIVE_ID <> CHILD_INITIATIVE_ID)
+);

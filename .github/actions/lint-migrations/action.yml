@@ -1,0 +1,29 @@
+name: Lint migrations
+description: >-
+  Fails if a migration in database/migrations/ contains a destructive or blocking statement
+  (DAT-09), naming the file, line and statement. Rules are in .squawk.toml. Used by CI on every
+  pull request and by the migrate workflow before it connects to any database.
+
+inputs:
+  squawk-version:
+    description: >-
+      Squawk release. 2.68.0 is the first with the drop-schema, drop-policy and drop-constraint
+      rules that .squawk.toml enables. Keep in step with tests/integration/schema/run-tests.sh.
+    default: '2.68.0'
+
+runs:
+  using: composite
+  steps:
+    - name: Lint migrations for destructive changes
+      shell: bash
+      env:
+        SQUAWK_VERSION: ${{ inputs.squawk-version }}
+      run: |
+        set -euo pipefail
+        shopt -s nullglob
+        migrations=(database/migrations/*.sql)
+        if [ ${#migrations[@]} -eq 0 ]; then
+          echo "No migrations to lint yet."
+        else
+          pipx run --spec "squawk-cli==${SQUAWK_VERSION}" squawk "${migrations[@]}"
+        fi

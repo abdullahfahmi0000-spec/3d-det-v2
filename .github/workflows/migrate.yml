@@ -1,0 +1,103 @@
+name: Migrate database
+
+# Applies database/ to one deployed environment (DAT-09): a separate, approved deployment step,
+# never part of application start-up.
+#
+#   guard    runs first and connects to nothing. It refuses a run that is not from main, so only
+#            reviewed migrations deploy, and refuses any destructive migration, naming the
+#            statement (PLT.S4 acceptance criterion 2).
+#   migrate  waits for the environment's required reviewers, then runs Flyway as det_migrator and
+#            checks the result.
+#
+# Each target is a GitHub Environment (Settings > Environments) with the same name as the
+# deployment environment, holding:
+#   variables  DB_HOST, DB_PORT, DB_NAME   the database's public host, port and name
+#   secret     DET_MIGRATOR_PASSWORD
+# Shared environments must have required reviewers. See database/README.md.
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Environment to migrate
+        type: environment
+        required: true
+
+permissions:
+  contents: read
+
+# One migration at a time per environment; a queued run waits rather than cancelling one in flight.
+concurrency:
+  group: migrate-${{ inputs.environment }}
+  cancel-in-progress: false
+
+env:
+  # Keep in step with docker-compose.dev.yml.
+  FLYWAY_IMAGE: 'flyway/flyway:13.9.0-alpine'
+  POSTGRES_IMAGE: 'pgvector/pgvector:pg18'
+
+jobs:
+  guard:
+    name: guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Refuse anything but main
+        if: github.ref != 'refs/heads/main'
+        run: |
+          echo "::error::Migrations deploy from main only, after review. This run is on ${GITHUB_REF}."
+          exit 1
+
+      - name: Check out
+        uses: actions/checkout@v7
+
+      - name: Lint migrations
+        uses: ./.github/actions/lint-migrations
+
+  migrate:
+    name: migrate (${{ inputs.environment }})
+    needs: guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: ${{ inputs.environment }}
+    env:
+      # Flyway and psql read their connection from these. Always over SSL, always as det_migrator.
+      FLYWAY_URL: jdbc:postgresql://${{ vars.DB_HOST }}:${{ vars.DB_PORT }}/${{ vars.DB_NAME }}?sslmode=require
+      FLYWAY_USER: det_migrator
+      FLYWAY_PASSWORD: ${{ secrets.DET_MIGRATOR_PASSWORD }}
+      PGHOST: ${{ vars.DB_HOST }}
+      PGPORT: ${{ vars.DB_PORT }}
+      PGDATABASE: ${{ vars.DB_NAME }}
+      PGUSER: det_migrator
+      PGPASSWORD: ${{ secrets.DET_MIGRATOR_PASSWORD }}
+      PGSSLMODE: require
+    steps:
+      - name: Check the environment is configured
+        run: |
+          missing=()
+          [ -n "${PGHOST}" ] || missing+=(DB_HOST)
+          [ -n "${PGPORT}" ] || missing+=(DB_PORT)
+          [ -n "${PGDATABASE}" ] || missing+=(DB_NAME)
+          [ -n "${PGPASSWORD}" ] || missing+=(DET_MIGRATOR_PASSWORD)
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error::GitHub Environment '${{ inputs.environment }}' is missing: ${missing[*]}"
+            exit 1
+          fi
+
+      - name: Check out
+        uses: actions/checkout@v7
+
+      - name: Show the migrations to apply
+        run: >-
+          docker run --rm -e FLYWAY_URL -e FLYWAY_USER -e FLYWAY_PASSWORD
+          -v "${PWD}/database:/flyway/project:ro" "${FLYWAY_IMAGE}" -workingDirectory=/flyway/project info
+
+      - name: Apply migrations
+        run: >-
+          docker run --rm -e FLYWAY_URL -e FLYWAY_USER -e FLYWAY_PASSWORD
+          -v "${PWD}/database:/flyway/project:ro" "${FLYWAY_IMAGE}" -workingDirectory=/flyway/project migrate
+
+      - name: Check the schema
+        run: >-
+          docker run --rm -i -e PGHOST -e PGPORT -e PGDATABASE -e PGUSER -e PGPASSWORD -e PGSSLMODE
+          "${POSTGRES_IMAGE}" psql -X -v ON_ERROR_STOP=1 < tests/integration/schema/schema-baseline.sql

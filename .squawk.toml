@@ -1,0 +1,45 @@
+# Squawk lints the forward migrations in database/migrations/ (DAT-09). CI fails on any
+# finding, so a destructive or blocking change cannot reach main, and therefore cannot reach a
+# shared environment, without an explicit, reviewed exception. See database/README.md.
+#
+# The baseline (database/ddl, database/policies) is not linted: it only ever runs against an
+# empty database, where locking and compatibility rules do not apply.
+
+pg_version = "18.0"
+
+# Flyway runs each migration inside a transaction.
+assume_in_transaction = true
+
+# Style preferences that contradict the client DDL, which uses VARCHAR(n), TIMESTAMP and INT
+# throughout. New columns follow the client's conventions, so these would only add noise. They
+# guard nothing destructive.
+excluded_rules = [
+  "prefer-text-field",
+  "prefer-timestamptz",
+  "prefer-bigint-over-int",
+  "prefer-bigint-over-smallint",
+]
+
+# Squawk's default rules already reject dropping tables and columns, changing a column's type,
+# renaming a column, TRUNCATE … CASCADE, dropping NOT NULL, and statements that take long
+# locks without `SET lock_timeout`. These opt-in rules extend that to every other destructive
+# statement. (ban-alter-row-level-security is deliberately absent: it also rejects ENABLE, which
+# every new table needs. ban-disable-trigger rejects DISABLE ROW LEVEL SECURITY.)
+included_rules = [
+  "ban-drop-database",
+  "ban-drop-schema",
+  "ban-drop-sequence",
+  "ban-drop-view",
+  "ban-drop-function",
+  "ban-drop-type",
+  "ban-drop-trigger",
+  "ban-drop-domain",
+  "ban-drop-extension",
+  "ban-drop-index",
+  "ban-drop-constraint",
+  "ban-drop-policy",
+  "ban-disable-trigger",
+  "ban-revoke",
+  "renaming-table",
+  "renaming-object",
+]

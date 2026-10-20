@@ -40,9 +40,18 @@ Optional local services (PostgreSQL and Redis):
 docker compose -f docker-compose.dev.yml up -d
 ```
 
+Create the schema (108 tables, Row-Level Security included) with Flyway:
+
+```bash
+docker compose -f docker-compose.dev.yml run --rm flyway migrate
+```
+
+To start again from an empty database, run `docker compose -f docker-compose.dev.yml down -v`
+and repeat both commands. See [`database/README.md`](../../database/README.md).
+
 The local PostgreSQL bootstrap user is a superuser and **bypasses Row-Level Security**. It is
-fine for exploring data and unsuitable for testing tenant isolation. Production RLS policies
-will be introduced with the approved database DDL.
+fine for exploring data and unsuitable for testing tenant isolation, which must connect as the
+application role `det_app`.
 
 ## 4. Build the shared packages
 
