@@ -17,8 +17,8 @@
     "@3ddet/contracts": "workspace:*",
     "@3ddet/three": "workspace:*",
     "@3ddet/ui": "workspace:*",
-    "react": "^19.3.0",
-    "react-dom": "^19.3.0"
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
   },
   "devDependencies": {
     "@3ddet/config": "workspace:*",
@@ -27,6 +27,6 @@
     "@vitejs/plugin-react": "^6.1.2",
     "typescript": "~6.0.3",
     "vite": "^8.3.4",
-    "vitest": "^5.0.3"
+    "vitest": "^5.0.5"
   }
 }

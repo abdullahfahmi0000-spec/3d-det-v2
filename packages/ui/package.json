@@ -21,7 +21,7 @@
   "devDependencies": {
     "@3ddet/config": "workspace:*",
     "@types/react": "^19.3.0",
-    "react": "^19.3.0",
+    "react": "^19.3.1",
     "typescript": "~6.0.3"
   }
 }
