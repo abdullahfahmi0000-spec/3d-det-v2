@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>3D.DET Digital Twin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="top-bar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 32 32" width="20" height="20">
+            <path
+              d="M16 3 28 10v12L16 29 4 22V10z"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            />
+            <path d="M4 10l12 7 12-7M16 17v12" fill="none" stroke="currentColor" stroke-width="2" />
+          </svg>
+        </span>
+        <div class="brand-text">
+          <strong>3D.DET</strong>
+          <span>Digital twin of the organisation</span>
+        </div>
+      </div>
+      <nav class="crumbs" aria-label="Context">
+        <span class="crumb"
+          ><span class="crumb-label">Company</span><strong id="tenant-name"></strong
+        ></span>
+        <span class="crumb-sep" aria-hidden="true">/</span>
+        <span class="crumb crumb-process"
+          ><span class="crumb-label">Process</span><strong id="process-name"></strong
+        ></span>
+      </nav>
+
+      <div class="top-actions">
+        <div class="order-chip" id="order-chip" aria-live="polite"></div>
+        <div class="mode-switch" role="group" aria-label="View">
+          <button class="mode-button" type="button" data-mode="2d" aria-pressed="false">
+            <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true">
+              <rect
+                x="3"
+                y="3"
+                width="14"
+                height="14"
+                rx="1.5"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.6"
+              />
+              <path d="M3 9h7v8M10 3v6" fill="none" stroke="currentColor" stroke-width="1.6" />
+            </svg>
+            2D
+          </button>
+          <button class="mode-button" type="button" data-mode="3d" aria-pressed="true">
+            <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true">
+              <path
+                d="M10 2 17 6v8l-7 4-7-4V6z"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.6"
+              />
+              <path d="M3 6l7 4 7-4M10 10v8" fill="none" stroke="currentColor" stroke-width="1.6" />
+            </svg>
+            3D
+          </button>
+        </div>
+        <button class="tool tool-primary" type="button" id="play-tour">
+          <span class="play-glyph" aria-hidden="true"></span>Play process
+        </button>
+        <button class="tool" type="button" id="reset-view">Overview</button>
+      </div>
+      <p class="data-note" id="data-note"></p>
+    </header>
+
+    <main class="stage" id="stage">
+      <canvas id="viewer-canvas"></canvas>
+
+      <div class="left-column">
+        <aside class="panel nav-panel" id="nav-panel" aria-label="Buildings and floors"></aside>
+        <section
+          class="panel building-card"
+          id="building-card"
+          aria-label="Building summary"
+        ></section>
+      </div>
+
+      <div class="panel floor-switch" id="floor-switch" aria-label="Floor" hidden></div>
+
+      <div
+        class="panel tour-bar"
+        id="tour-bar"
+        role="toolbar"
+        aria-label="Process walk"
+        hidden
+      ></div>
+      <div class="panel tour-caption" id="tour-caption" hidden></div>
+      <div class="tour-outcome" id="tour-outcome" hidden></div>
+
+      <section class="panel flow-bar" id="flow-bar" aria-label="Process flow"></section>
+
+      <aside class="panel inspector" aria-label="Inspector">
+        <div class="tabs" role="tablist">
+          <button class="tab" type="button" role="tab" data-tab="order" aria-selected="true">
+            Order
+          </button>
+          <button class="tab" type="button" role="tab" data-tab="people" aria-selected="false">
+            People
+          </button>
+          <button class="tab" type="button" role="tab" data-tab="process" aria-selected="false">
+            Process KPIs
+          </button>
+        </div>
+        <div class="tab-panel" data-panel="order" id="order-panel"></div>
+        <div class="tab-panel" data-panel="people" id="people-panel" hidden></div>
+        <div class="tab-panel" data-panel="process" id="process-panel" hidden></div>
+      </aside>
+    </main>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

@@ -1,0 +1,1044 @@
+{
+  "meta": {
+    "title": "Order-to-Cash (O2C): Demo Data",
+    "source": "Order-to-Cash (O2C) Demo Data and Data Entry Guide, 16 Oct 2026. Tables follow 01.5 DDL PostgreSQL V62.",
+    "synthetic": true,
+    "tenantId": 1,
+    "scenarioId": 0
+  },
+  "tenant": {
+    "code": "DEMO-MFG",
+    "name": "Demo Manufacturing Srl",
+    "type": "BUSINESS",
+    "country": "ITA"
+  },
+  "processCategories": [
+    {
+      "code": "CORE_OPS",
+      "name": "Core operations"
+    }
+  ],
+  "processTriggerTypes": [
+    {
+      "code": "EXTERNAL_EVENT",
+      "name": "Customer order received"
+    }
+  ],
+  "taskCategories": [
+    {
+      "code": "SALES",
+      "name": "Sales"
+    },
+    {
+      "code": "FINANCE",
+      "name": "Finance"
+    },
+    {
+      "code": "LOGISTICS",
+      "name": "Logistics"
+    }
+  ],
+  "nodeTypes": [
+    {
+      "code": "COMPANY",
+      "name": "Company",
+      "scope": "CORE",
+      "nodeClass": "STRUCTURE"
+    },
+    {
+      "code": "DEPARTMENT",
+      "name": "Department",
+      "scope": "CORE",
+      "nodeClass": "STRUCTURE"
+    },
+    {
+      "code": "JOB",
+      "name": "Job",
+      "scope": "CORE",
+      "nodeClass": "JOB"
+    }
+  ],
+  "nodes": [
+    {
+      "code": "COMPANY",
+      "name": "Demo Manufacturing Srl",
+      "type": "COMPANY",
+      "reportsTo": null
+    },
+    {
+      "code": "DEP_SALES",
+      "name": "Sales",
+      "type": "DEPARTMENT",
+      "reportsTo": "COMPANY"
+    },
+    {
+      "code": "DEP_FIN",
+      "name": "Finance and Administration",
+      "type": "DEPARTMENT",
+      "reportsTo": "COMPANY"
+    },
+    {
+      "code": "DEP_LOG",
+      "name": "Logistics",
+      "type": "DEPARTMENT",
+      "reportsTo": "COMPANY"
+    },
+    {
+      "code": "JOB_SALES_MGR",
+      "name": "Sales Manager Italy",
+      "type": "JOB",
+      "reportsTo": "DEP_SALES"
+    },
+    {
+      "code": "JOB_ORDER_ENTRY",
+      "name": "Order Entry Specialist",
+      "type": "JOB",
+      "reportsTo": "JOB_SALES_MGR"
+    },
+    {
+      "code": "JOB_CFO",
+      "name": "CFO",
+      "type": "JOB",
+      "reportsTo": "DEP_FIN"
+    },
+    {
+      "code": "JOB_CREDIT",
+      "name": "Credit Analyst",
+      "type": "JOB",
+      "reportsTo": "JOB_CFO"
+    },
+    {
+      "code": "JOB_HEAD_ADMIN",
+      "name": "Head of Administration",
+      "type": "JOB",
+      "reportsTo": "JOB_CFO"
+    },
+    {
+      "code": "JOB_INVOICING",
+      "name": "Invoicing Clerk",
+      "type": "JOB",
+      "reportsTo": "JOB_HEAD_ADMIN"
+    },
+    {
+      "code": "JOB_COLLECTIONS",
+      "name": "Collections Specialist",
+      "type": "JOB",
+      "reportsTo": "JOB_HEAD_ADMIN"
+    },
+    {
+      "code": "JOB_HEAD_LOG",
+      "name": "Head of Logistics",
+      "type": "JOB",
+      "reportsTo": "DEP_LOG"
+    },
+    {
+      "code": "JOB_WAREHOUSE",
+      "name": "Warehouse Operator",
+      "type": "JOB",
+      "reportsTo": "JOB_HEAD_LOG"
+    },
+    {
+      "code": "JOB_SHIPPING",
+      "name": "Shipping Clerk",
+      "type": "JOB",
+      "reportsTo": "JOB_HEAD_LOG"
+    }
+  ],
+  "bomHeader": {
+    "code": "ORG-HIER",
+    "type": "HIERARCHICAL",
+    "status": "Active",
+    "validFrom": "2020-01-01",
+    "linkType": "Solid"
+  },
+  "persons": [
+    {
+      "id": "E001",
+      "fullName": "Giulia Rossi",
+      "contractType": "Permanent",
+      "jobCode": "JOB_ORDER_ENTRY",
+      "since": "2024-03-01"
+    },
+    {
+      "id": "E002",
+      "fullName": "Marco Bianchi",
+      "contractType": "Permanent",
+      "jobCode": "JOB_CREDIT",
+      "since": "2023-05-01"
+    },
+    {
+      "id": "E003",
+      "fullName": "Paolo Neri",
+      "contractType": "Permanent",
+      "jobCode": "JOB_SHIPPING",
+      "since": "2022-01-10"
+    },
+    {
+      "id": "E004",
+      "fullName": "Sara Conti",
+      "contractType": "Permanent",
+      "jobCode": "JOB_COLLECTIONS",
+      "since": "2021-09-01"
+    },
+    {
+      "id": "E005",
+      "fullName": "Anna Greco",
+      "contractType": "Permanent",
+      "jobCode": "JOB_SALES_MGR",
+      "since": "2019-01-01"
+    },
+    {
+      "id": "E006",
+      "fullName": "Franco Riva",
+      "contractType": "Permanent",
+      "jobCode": "JOB_CFO",
+      "since": "2018-06-01"
+    },
+    {
+      "id": "E007",
+      "fullName": "Elena Mori",
+      "contractType": "Permanent",
+      "jobCode": "JOB_HEAD_LOG",
+      "since": "2020-02-01"
+    },
+    {
+      "id": "E008",
+      "fullName": "Davide Sala",
+      "contractType": "Permanent",
+      "jobCode": "JOB_HEAD_ADMIN",
+      "since": "2020-03-01"
+    }
+  ],
+  "uncoveredJobs": [
+    {
+      "jobCode": "JOB_WAREHOUSE",
+      "reason": "Coverage gap: picking is done by the shipping clerk out of scope",
+      "uncoveredWeeks": 3,
+      "coveredBy": "E003"
+    },
+    {
+      "jobCode": "JOB_INVOICING",
+      "reason": "Invoices are issued by an AI agent",
+      "coveredByAgent": true,
+      "agentSince": "2026-03-01"
+    }
+  ],
+  "transactions": [
+    {
+      "code": "SO-CREATE",
+      "name": "Create sales order",
+      "type": "INTERACTIVE",
+      "system": "Demo ERP",
+      "behaviour": "Standard",
+      "status": "Declared"
+    },
+    {
+      "code": "DN-CREATE",
+      "name": "Create delivery note",
+      "type": "INTERACTIVE",
+      "system": "Demo ERP",
+      "behaviour": "Customised: carrier field is mandatory",
+      "status": "Verified",
+      "verifiedBy": "E007",
+      "verifiedOn": "2026-06-12"
+    },
+    {
+      "code": "INV-CREATE",
+      "name": "Issue customer invoice",
+      "type": "INTERACTIVE",
+      "system": "Demo ERP",
+      "behaviour": "Standard",
+      "status": "Declared"
+    }
+  ],
+  "tasks": [
+    {
+      "code": "T_REG_ORDER",
+      "name": "Register customer order",
+      "category": "SALES",
+      "frequency": "Event_Triggered",
+      "typicalMinutes": 12,
+      "automatablePercent": 60,
+      "judgement": false,
+      "transaction": "SO-CREATE"
+    },
+    {
+      "code": "T_CREDIT",
+      "name": "Credit check",
+      "category": "FINANCE",
+      "frequency": "Event_Triggered",
+      "typicalMinutes": 12,
+      "automatablePercent": 30,
+      "judgement": true,
+      "transaction": null
+    },
+    {
+      "code": "T_PICK",
+      "name": "Pick goods",
+      "category": "LOGISTICS",
+      "frequency": "Event_Triggered",
+      "typicalMinutes": 45,
+      "automatablePercent": 20,
+      "judgement": false,
+      "transaction": null
+    },
+    {
+      "code": "T_DELIVERY_NOTE",
+      "name": "Issue delivery note",
+      "category": "LOGISTICS",
+      "frequency": "Event_Triggered",
+      "typicalMinutes": 20,
+      "automatablePercent": 70,
+      "judgement": false,
+      "transaction": "DN-CREATE"
+    },
+    {
+      "code": "T_INVOICE",
+      "name": "Issue invoice",
+      "category": "FINANCE",
+      "frequency": "Event_Triggered",
+      "typicalMinutes": 12,
+      "automatablePercent": 95,
+      "judgement": false,
+      "transaction": "INV-CREATE"
+    },
+    {
+      "code": "T_RECONCILE",
+      "name": "Reconcile payment",
+      "category": "FINANCE",
+      "frequency": "Event_Triggered",
+      "typicalMinutes": 15,
+      "automatablePercent": 60,
+      "judgement": false,
+      "transaction": null,
+      "raciStatus": "Assumed",
+      "contested": true
+    }
+  ],
+  "raci": [
+    {
+      "taskCode": "T_REG_ORDER",
+      "responsible": "JOB_ORDER_ENTRY",
+      "accountable": "JOB_SALES_MGR"
+    },
+    {
+      "taskCode": "T_CREDIT",
+      "responsible": "JOB_CREDIT",
+      "accountable": "JOB_CFO"
+    },
+    {
+      "taskCode": "T_PICK",
+      "responsible": "JOB_WAREHOUSE",
+      "accountable": "JOB_HEAD_LOG"
+    },
+    {
+      "taskCode": "T_DELIVERY_NOTE",
+      "responsible": "JOB_SHIPPING",
+      "accountable": "JOB_HEAD_LOG"
+    },
+    {
+      "taskCode": "T_INVOICE",
+      "responsible": "JOB_INVOICING",
+      "accountable": "JOB_HEAD_ADMIN"
+    },
+    {
+      "taskCode": "T_RECONCILE",
+      "responsible": "JOB_COLLECTIONS",
+      "accountable": "JOB_HEAD_ADMIN"
+    }
+  ],
+  "raciMeta": {
+    "status": "Declared",
+    "validFrom": "2026-01-01",
+    "confirmedBy": "E006"
+  },
+  "businessRules": [
+    {
+      "code": "CREDIT_APPROVAL",
+      "name": "Credit approval above threshold",
+      "type": "Threshold",
+      "status": "Active",
+      "effectiveFrom": "2026-01-01",
+      "ownerJob": "JOB_CFO",
+      "parameters": [
+        {
+          "code": "CREDIT_THRESHOLD",
+          "value": 50000,
+          "unit": "EUR",
+          "type": "Threshold",
+          "source": "Manual_Declaration",
+          "effectiveFrom": "2026-01-01"
+        }
+      ],
+      "taskLinks": [
+        {
+          "taskCode": "T_CREDIT",
+          "role": "Decision_Criterion",
+          "blocking": true
+        }
+      ]
+    }
+  ],
+  "process": {
+    "code": "O2C",
+    "name": "Order-to-Cash",
+    "category": "CORE_OPS",
+    "trigger": "Customer order received",
+    "endCondition": "Cash collected and matched to the invoice",
+    "owner": "E008",
+    "criticality": "High",
+    "productionMode": "MTO",
+    "declaredAverageDurationDays": 5,
+    "validFrom": "2026-01-01",
+    "version": "1.0",
+    "status": "Active",
+    "raciValidationStatus": "Passed",
+    "stepsUnresolvedCount": 0
+  },
+  "steps": [
+    {
+      "step": 1,
+      "taskCode": "T_REG_ORDER",
+      "marker": "Start",
+      "durationMinutes": 12,
+      "waitBeforeMinutes": 0,
+      "slaMinutes": 60,
+      "automationNow": 0,
+      "automationTarget": 20
+    },
+    {
+      "step": 2,
+      "taskCode": "T_CREDIT",
+      "marker": null,
+      "durationMinutes": 12,
+      "waitBeforeMinutes": 240,
+      "slaMinutes": 2880,
+      "automationNow": 0,
+      "automationTarget": 50
+    },
+    {
+      "step": 3,
+      "taskCode": "T_PICK",
+      "marker": null,
+      "durationMinutes": 45,
+      "waitBeforeMinutes": 480,
+      "slaMinutes": 2880,
+      "automationNow": 0,
+      "automationTarget": 20
+    },
+    {
+      "step": 4,
+      "taskCode": "T_DELIVERY_NOTE",
+      "marker": null,
+      "durationMinutes": 20,
+      "waitBeforeMinutes": 240,
+      "slaMinutes": 1440,
+      "automationNow": 70,
+      "automationTarget": 90
+    },
+    {
+      "step": 5,
+      "taskCode": "T_INVOICE",
+      "marker": null,
+      "durationMinutes": 12,
+      "waitBeforeMinutes": 240,
+      "slaMinutes": 1440,
+      "automationNow": 95,
+      "automationTarget": 95
+    },
+    {
+      "step": 6,
+      "taskCode": "T_RECONCILE",
+      "marker": "End",
+      "durationMinutes": 15,
+      "waitBeforeMinutes": 2880,
+      "slaMinutes": 43200,
+      "automationNow": 60,
+      "automationTarget": 80
+    }
+  ],
+  "gateway": {
+    "code": "GW_CREDIT",
+    "name": "Order above 50,000?",
+    "type": "Exclusive",
+    "rule": "CREDIT_APPROVAL"
+  },
+  "gatewayLinks": [
+    {
+      "direction": "Incoming",
+      "step": 1,
+      "label": null,
+      "condition": null,
+      "isDefault": false
+    },
+    {
+      "direction": "Outgoing",
+      "step": 2,
+      "label": "Yes",
+      "condition": "amount > 50000",
+      "isDefault": false
+    },
+    {
+      "direction": "Outgoing",
+      "step": 3,
+      "label": "No",
+      "condition": "amount <= 50000",
+      "isDefault": true
+    }
+  ],
+  "flowLinks": [
+    {
+      "from": 2,
+      "to": 3
+    },
+    {
+      "from": 3,
+      "to": 4
+    },
+    {
+      "from": 4,
+      "to": 5
+    },
+    {
+      "from": 5,
+      "to": 6
+    }
+  ],
+  "instances": [
+    {
+      "id": "PI-O2C-2026-0001",
+      "orderRef": "SO-1001",
+      "customer": "Rossi Meccanica SpA",
+      "amount": 12000,
+      "currency": "EUR",
+      "startedAt": "2026-09-01T09:00",
+      "status": "Completed",
+      "outcome": "Success",
+      "days": 23.1
+    },
+    {
+      "id": "PI-O2C-2026-0002",
+      "orderRef": "SO-1002",
+      "customer": "Bianchi Srl",
+      "amount": 60000,
+      "currency": "EUR",
+      "startedAt": "2026-09-02T14:00",
+      "status": "Completed",
+      "outcome": "Success",
+      "days": 27.8
+    },
+    {
+      "id": "PI-O2C-2026-0003",
+      "orderRef": "SO-1003",
+      "customer": "Verdi Impianti",
+      "amount": 8500,
+      "currency": "EUR",
+      "startedAt": "2026-09-10T10:00",
+      "status": "Completed",
+      "outcome": "Success",
+      "days": 15.2
+    },
+    {
+      "id": "PI-O2C-2026-0004",
+      "orderRef": "SO-1004",
+      "customer": "Neri Group",
+      "amount": 75000,
+      "currency": "EUR",
+      "startedAt": "2026-09-28T11:00",
+      "status": "Suspended",
+      "outcome": null,
+      "days": null
+    },
+    {
+      "id": "PI-O2C-2026-0005",
+      "orderRef": "SO-1005",
+      "customer": "Fontana SpA",
+      "amount": 120000,
+      "currency": "EUR",
+      "startedAt": "2026-09-15T09:00",
+      "status": "Aborted",
+      "outcome": "Rejected",
+      "days": 3.1
+    }
+  ],
+  "events": [
+    {
+      "orderRef": "SO-1001",
+      "at": "2026-09-01T09:00",
+      "step": 1,
+      "type": "Started",
+      "by": "E001",
+      "waitBeforeMinutes": null,
+      "label": null
+    },
+    {
+      "orderRef": "SO-1001",
+      "at": "2026-09-01T09:12",
+      "step": 1,
+      "type": "Completed",
+      "by": "E001",
+      "waitBeforeMinutes": null,
+      "label": "Registered"
+    },
+    {
+      "orderRef": "SO-1001",
+      "at": "2026-09-01T09:12",
+      "step": null,
+      "type": "Branch_Activated",
+      "by": null,
+      "waitBeforeMinutes": null,
+      "label": "No (<=50000)"
+    },
+    {
+      "orderRef": "SO-1001",
+      "at": "2026-09-02T10:00",
+      "step": 3,
+      "type": "Started",
+      "by": "E003",
+      "waitBeforeMinutes": 1488,
+      "label": null
+    },
+    {
+      "orderRef": "SO-1001",
+      "at": "2026-09-02T10:45",
+      "step": 3,
+      "type": "Completed",
+      "by": "E003",
+      "waitBeforeMinutes": null,
+      "label": "Picked"
+    },
+    {
+      "orderRef": "SO-1001",
+      "at": "2026-09-03T09:00",
+      "step": 4,
+      "type": "Started",
+      "by": "E003",
+      "waitBeforeMinutes": 1335,
+      "label": null
+    },
+    {
+      "orderRef": "SO-1001",
+      "at": "2026-09-03T09:20",
+      "step": 4,
+      "type": "Completed",
+      "by": "E003",
+      "waitBeforeMinutes": null,
+      "label": "Delivery note issued"
+    },
+    {
+      "orderRef": "SO-1001",
+      "at": "2026-09-03T15:00",
+      "step": 5,
+      "type": "Started",
+      "by": "AI_AGENT",
+      "waitBeforeMinutes": 340,
+      "label": null
+    },
+    {
+      "orderRef": "SO-1001",
+      "at": "2026-09-03T15:02",
+      "step": 5,
+      "type": "Completed",
+      "by": "AI_AGENT",
+      "waitBeforeMinutes": null,
+      "label": "Invoice issued"
+    },
+    {
+      "orderRef": "SO-1001",
+      "at": "2026-09-24T11:00",
+      "step": 6,
+      "type": "Started",
+      "by": "E004",
+      "waitBeforeMinutes": 29998,
+      "label": null
+    },
+    {
+      "orderRef": "SO-1001",
+      "at": "2026-09-24T11:15",
+      "step": 6,
+      "type": "Completed",
+      "by": "E004",
+      "waitBeforeMinutes": null,
+      "label": "Payment reconciled"
+    },
+    {
+      "orderRef": "SO-1002",
+      "at": "2026-09-02T14:00",
+      "step": 1,
+      "type": "Started",
+      "by": "E001",
+      "waitBeforeMinutes": null,
+      "label": null
+    },
+    {
+      "orderRef": "SO-1002",
+      "at": "2026-09-02T14:10",
+      "step": 1,
+      "type": "Completed",
+      "by": "E001",
+      "waitBeforeMinutes": null,
+      "label": "Registered"
+    },
+    {
+      "orderRef": "SO-1002",
+      "at": "2026-09-02T14:10",
+      "step": null,
+      "type": "Branch_Activated",
+      "by": null,
+      "waitBeforeMinutes": null,
+      "label": "Yes (>50000)"
+    },
+    {
+      "orderRef": "SO-1002",
+      "at": "2026-09-04T14:10",
+      "step": 2,
+      "type": "Started",
+      "by": "E002",
+      "waitBeforeMinutes": 2880,
+      "label": null
+    },
+    {
+      "orderRef": "SO-1002",
+      "at": "2026-09-04T14:25",
+      "step": 2,
+      "type": "Escalated",
+      "by": "E002",
+      "waitBeforeMinutes": null,
+      "label": "Over analyst limit"
+    },
+    {
+      "orderRef": "SO-1002",
+      "at": "2026-09-04T14:26",
+      "step": 2,
+      "type": "Approval_Requested",
+      "by": "E002",
+      "waitBeforeMinutes": null,
+      "label": null
+    },
+    {
+      "orderRef": "SO-1002",
+      "at": "2026-09-04T16:00",
+      "step": 2,
+      "type": "Approval_Granted",
+      "by": "E006",
+      "waitBeforeMinutes": null,
+      "label": "Approved by CFO"
+    },
+    {
+      "orderRef": "SO-1002",
+      "at": "2026-09-04T16:05",
+      "step": 2,
+      "type": "Completed",
+      "by": "E002",
+      "waitBeforeMinutes": null,
+      "label": "Credit approved"
+    },
+    {
+      "orderRef": "SO-1002",
+      "at": "2026-09-07T09:00",
+      "step": 3,
+      "type": "Started",
+      "by": "E003",
+      "waitBeforeMinutes": 3895,
+      "label": null
+    },
+    {
+      "orderRef": "SO-1002",
+      "at": "2026-09-07T09:50",
+      "step": 3,
+      "type": "Completed",
+      "by": "E003",
+      "waitBeforeMinutes": null,
+      "label": "Picked"
+    },
+    {
+      "orderRef": "SO-1002",
+      "at": "2026-09-07T13:00",
+      "step": 4,
+      "type": "Started",
+      "by": "E003",
+      "waitBeforeMinutes": 190,
+      "label": null
+    },
+    {
+      "orderRef": "SO-1002",
+      "at": "2026-09-07T13:25",
+      "step": 4,
+      "type": "Completed",
+      "by": "E003",
+      "waitBeforeMinutes": null,
+      "label": "Delivery note issued"
+    },
+    {
+      "orderRef": "SO-1002",
+      "at": "2026-09-08T10:00",
+      "step": 5,
+      "type": "Started",
+      "by": "AI_AGENT",
+      "waitBeforeMinutes": 1235,
+      "label": null
+    },
+    {
+      "orderRef": "SO-1002",
+      "at": "2026-09-08T10:03",
+      "step": 5,
+      "type": "Completed",
+      "by": "AI_AGENT",
+      "waitBeforeMinutes": null,
+      "label": "Invoice issued"
+    },
+    {
+      "orderRef": "SO-1002",
+      "at": "2026-09-30T10:00",
+      "step": 6,
+      "type": "Started",
+      "by": "E004",
+      "waitBeforeMinutes": 31677,
+      "label": null
+    },
+    {
+      "orderRef": "SO-1002",
+      "at": "2026-09-30T10:20",
+      "step": 6,
+      "type": "Completed",
+      "by": "E004",
+      "waitBeforeMinutes": null,
+      "label": "Payment reconciled"
+    },
+    {
+      "orderRef": "SO-1003",
+      "at": "2026-09-10T10:00",
+      "step": 1,
+      "type": "Started",
+      "by": "E001",
+      "waitBeforeMinutes": null,
+      "label": null
+    },
+    {
+      "orderRef": "SO-1003",
+      "at": "2026-09-10T10:11",
+      "step": 1,
+      "type": "Completed",
+      "by": "E001",
+      "waitBeforeMinutes": null,
+      "label": "Registered"
+    },
+    {
+      "orderRef": "SO-1003",
+      "at": "2026-09-10T10:11",
+      "step": null,
+      "type": "Branch_Activated",
+      "by": null,
+      "waitBeforeMinutes": null,
+      "label": "No (<=50000)"
+    },
+    {
+      "orderRef": "SO-1003",
+      "at": "2026-09-11T09:00",
+      "step": 3,
+      "type": "Started",
+      "by": "E003",
+      "waitBeforeMinutes": 1369,
+      "label": null
+    },
+    {
+      "orderRef": "SO-1003",
+      "at": "2026-09-11T09:40",
+      "step": 3,
+      "type": "Completed",
+      "by": "E003",
+      "waitBeforeMinutes": null,
+      "label": "Picked"
+    },
+    {
+      "orderRef": "SO-1003",
+      "at": "2026-09-11T11:00",
+      "step": 4,
+      "type": "Started",
+      "by": "E003",
+      "waitBeforeMinutes": 80,
+      "label": null
+    },
+    {
+      "orderRef": "SO-1003",
+      "at": "2026-09-11T11:18",
+      "step": 4,
+      "type": "Completed",
+      "by": "E003",
+      "waitBeforeMinutes": null,
+      "label": "Delivery note issued"
+    },
+    {
+      "orderRef": "SO-1003",
+      "at": "2026-09-11T16:00",
+      "step": 5,
+      "type": "Started",
+      "by": "AI_AGENT",
+      "waitBeforeMinutes": 282,
+      "label": null
+    },
+    {
+      "orderRef": "SO-1003",
+      "at": "2026-09-11T16:02",
+      "step": 5,
+      "type": "Completed",
+      "by": "AI_AGENT",
+      "waitBeforeMinutes": null,
+      "label": "Invoice issued"
+    },
+    {
+      "orderRef": "SO-1003",
+      "at": "2026-09-25T15:00",
+      "step": 6,
+      "type": "Started",
+      "by": "E004",
+      "waitBeforeMinutes": 20098,
+      "label": null
+    },
+    {
+      "orderRef": "SO-1003",
+      "at": "2026-09-25T15:12",
+      "step": 6,
+      "type": "Completed",
+      "by": "E004",
+      "waitBeforeMinutes": null,
+      "label": "Payment reconciled"
+    },
+    {
+      "orderRef": "SO-1004",
+      "at": "2026-09-28T11:00",
+      "step": 1,
+      "type": "Started",
+      "by": "E001",
+      "waitBeforeMinutes": null,
+      "label": null
+    },
+    {
+      "orderRef": "SO-1004",
+      "at": "2026-09-28T11:12",
+      "step": 1,
+      "type": "Completed",
+      "by": "E001",
+      "waitBeforeMinutes": null,
+      "label": "Registered"
+    },
+    {
+      "orderRef": "SO-1004",
+      "at": "2026-09-28T11:12",
+      "step": null,
+      "type": "Branch_Activated",
+      "by": null,
+      "waitBeforeMinutes": null,
+      "label": "Yes (>50000)"
+    },
+    {
+      "orderRef": "SO-1004",
+      "at": "2026-09-30T09:30",
+      "step": 2,
+      "type": "Started",
+      "by": "E002",
+      "waitBeforeMinutes": 2778,
+      "label": null
+    },
+    {
+      "orderRef": "SO-1004",
+      "at": "2026-09-30T09:45",
+      "step": 2,
+      "type": "Escalated",
+      "by": "E002",
+      "waitBeforeMinutes": null,
+      "label": "Over analyst limit"
+    },
+    {
+      "orderRef": "SO-1004",
+      "at": "2026-09-30T09:46",
+      "step": 2,
+      "type": "Approval_Requested",
+      "by": "E002",
+      "waitBeforeMinutes": null,
+      "label": null
+    },
+    {
+      "orderRef": "SO-1004",
+      "at": "2026-10-02T09:46",
+      "step": 2,
+      "type": "Reminder_Sent",
+      "by": null,
+      "waitBeforeMinutes": null,
+      "label": "Reminder 1"
+    },
+    {
+      "orderRef": "SO-1005",
+      "at": "2026-09-15T09:00",
+      "step": 1,
+      "type": "Started",
+      "by": "E001",
+      "waitBeforeMinutes": null,
+      "label": null
+    },
+    {
+      "orderRef": "SO-1005",
+      "at": "2026-09-15T09:15",
+      "step": 1,
+      "type": "Completed",
+      "by": "E001",
+      "waitBeforeMinutes": null,
+      "label": "Registered"
+    },
+    {
+      "orderRef": "SO-1005",
+      "at": "2026-09-15T09:15",
+      "step": null,
+      "type": "Branch_Activated",
+      "by": null,
+      "waitBeforeMinutes": null,
+      "label": "Yes (>50000)"
+    },
+    {
+      "orderRef": "SO-1005",
+      "at": "2026-09-17T09:00",
+      "step": 2,
+      "type": "Started",
+      "by": "E002",
+      "waitBeforeMinutes": 2865,
+      "label": null
+    },
+    {
+      "orderRef": "SO-1005",
+      "at": "2026-09-17T09:20",
+      "step": 2,
+      "type": "Escalated",
+      "by": "E002",
+      "waitBeforeMinutes": null,
+      "label": "Exposure above limit"
+    },
+    {
+      "orderRef": "SO-1005",
+      "at": "2026-09-17T09:21",
+      "step": 2,
+      "type": "Approval_Requested",
+      "by": "E002",
+      "waitBeforeMinutes": null,
+      "label": null
+    },
+    {
+      "orderRef": "SO-1005",
+      "at": "2026-09-18T11:00",
+      "step": 2,
+      "type": "Approval_Rejected",
+      "by": "E006",
+      "waitBeforeMinutes": null,
+      "label": "Rejected by CFO"
+    }
+  ],
+  "workload": [
+    {
+      "personId": "E001",
+      "taskCode": "T_REG_ORDER",
+      "minutesPerTask": 12,
+      "timesPerDay": 40,
+      "loadPercent": 118,
+      "source": "Appendix A, stops 2 and 3"
+    }
+  ]
+}

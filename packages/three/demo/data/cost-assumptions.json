@@ -1,0 +1,24 @@
+{
+  "meta": {
+    "title": "Labour cost assumptions",
+    "source": "Assumed for the demo. The O2C guide gives no salaries or rates; replace with real cost-centre data.",
+    "currency": "EUR",
+    "annualHours": 1720,
+    "basis": "Fully loaded hourly cost (salary, social contributions, overhead) for an Italian manufacturing SME"
+  },
+  "hourlyRates": {
+    "JOB_SALES_MGR": 58,
+    "JOB_ORDER_ENTRY": 31,
+    "JOB_CFO": 105,
+    "JOB_CREDIT": 44,
+    "JOB_HEAD_ADMIN": 66,
+    "JOB_INVOICING": 29,
+    "JOB_COLLECTIONS": 35,
+    "JOB_HEAD_LOG": 56,
+    "JOB_WAREHOUSE": 27,
+    "JOB_SHIPPING": 30
+  },
+  "automation": {
+    "JOB_INVOICING": { "costPerRun": 0.4, "licencePerYear": 7200 }
+  }
+}

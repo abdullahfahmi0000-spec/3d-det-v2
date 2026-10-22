@@ -1,22 +1,28 @@
+import type { Color } from 'three';
 import { describe, expect, it } from 'vitest';
 
 import { createCamera, distanceToFrame } from '../camera/create-camera';
-import { createScene } from '../scene/create-scene';
+import { createScene, DEFAULT_HORIZON } from '../scene/create-scene';
 import { emptySceneViewModel } from '../viewer-contract/view-model';
 
 describe('createScene', () => {
   it('builds a lit scene with a separate content group', () => {
     const { scene, content } = createScene();
 
-    expect(scene.getObjectByName('ambient')).toBeDefined();
+    expect(scene.getObjectByName('sky-light')).toBeDefined();
     expect(scene.getObjectByName('sun')).toBeDefined();
     expect(scene.getObjectByName('content')).toBe(content);
     expect(content.children).toHaveLength(0);
   });
 
-  it('can omit the reference grid', () => {
-    const { scene } = createScene({ showGrid: false });
-    expect(scene.getObjectByName('grid')).toBeUndefined();
+  it('fills the horizon with the fog colour under a sky dome, over a horizontal ground plane', () => {
+    const { scene } = createScene();
+    const ground = scene.getObjectByName('ground');
+
+    expect((scene.background as Color).getHex()).toBe(DEFAULT_HORIZON);
+    expect(scene.getObjectByName('sky')).toBeDefined();
+    expect(ground).toBeDefined();
+    expect(ground?.rotation.x).toBeCloseTo(-Math.PI / 2);
   });
 });
 

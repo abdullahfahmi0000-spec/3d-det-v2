@@ -19,8 +19,7 @@ export function createCamera(options: CameraOptions = {}): PerspectiveCamera {
     options.near ?? 0.1,
     options.far ?? 2000,
   );
-  camera.position.set(12, 9, 16);
-  camera.lookAt(0, 0, 0);
+  camera.position.set(0, 1.7, 20);
   return camera;
 }
 
