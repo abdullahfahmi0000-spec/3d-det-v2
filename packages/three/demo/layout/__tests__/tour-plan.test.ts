@@ -4,7 +4,7 @@ import { costAssumptions, dataset } from '../../domain/dataset';
 import { computeOrderProgress } from '../../domain/order-progress';
 import { computeJobKpis } from '../../domain/people-kpis';
 import { toRoute } from '../route-state';
-import { planTour } from '../tour-plan';
+import { intakeOf, planTour } from '../tour-plan';
 import { buildTwinModel, truckId } from '../twin-layout';
 
 const twin = buildTwinModel(dataset, computeJobKpis(dataset, costAssumptions));
@@ -35,6 +35,16 @@ describe('planTour', () => {
       truckId('SO-1002'),
       'outcome',
     ]);
+  });
+
+  it('receives every order at the desk of whoever registered it', () => {
+    for (const instance of dataset.instances) {
+      const registered = dataset.events.find(
+        (event) =>
+          event.orderRef === instance.orderRef && event.step === 1 && event.type === 'Started',
+      );
+      expect(intakeOf(plan(instance.orderRef))?.entity.id).toBe(registered?.by);
+    }
   });
 
   it('sends the parcel from each stop to the next', () => {

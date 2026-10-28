@@ -11,6 +11,12 @@ import {
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { CSS2DObject, CSS2DRenderer } from 'three/examples/jsm/renderers/CSS2DRenderer.js';
 
+import {
+  disposeCharacterModel,
+  type CharacterLoader,
+  type CharacterModel,
+} from '../avatars/create-character';
+import { createProcessAvatar, type ProcessAvatar } from '../avatars/create-process-avatar';
 import type { NavPoint } from '../building/create-navigation';
 import { createSite, type Site } from '../building/create-site';
 import { createCamera } from '../camera/create-camera';
@@ -30,6 +36,7 @@ import {
   type TwinViewModel,
   type ViewModeModel,
 } from '../viewer-contract/twin-model';
+import type { Walker } from '../building/walker';
 import { createScene } from './create-scene';
 import { disposeObject } from './dispose-object';
 
@@ -58,8 +65,10 @@ export interface ViewerHandle {
   /** Puts dispatched trucks back at their docks. */
   resetDispatch(): void;
   /**
-   * Frames a place (a workstation, a truck, or `entrance:<building>`) from a short way
-   * off, as someone arriving would see it.
+   * Shows the process avatar standing at a place, the camera on it. At `entrance:<building>`
+   * it stands outside the entrance, seen from a short way off as someone arriving would see
+   * it. At a workstation it stands beside the desk, empty-handed, in a word with the person
+   * there, seen from inside as at the end of a travel: where an order arrives in the systems.
    */
   showPlace(place: string, onSettled?: () => void): boolean;
   /**
@@ -72,6 +81,11 @@ export interface ViewerHandle {
   travelTo(place: string, options: TravelOptions): boolean;
   /** Holds a travel in progress where it is, or lets it carry on. */
   pauseTravel(paused: boolean): void;
+  /**
+   * How fast the process avatar walks, as a multiple of a real walking pace: 2 unless set.
+   * A walk under way changes pace at once.
+   */
+  setTravelSpeed(multiplier: number): void;
   /** Removes the wayfinding lines. */
   clearTravel(): void;
   /** Hides every label in the twin (callouts excepted), so one card can speak alone. */
@@ -97,6 +111,12 @@ export interface ViewerHandle {
   drawPath(place: string, options: DrawPathOptions): boolean;
   /** Marks an entity as selected without emitting a `select` event. */
   select(entity: EntityRef | null): void;
+  /**
+   * Resolves once the animated people are seated and the process avatar is ready for the
+   * twin loaded, so a tour started then is walked; at once without `characters`, and also
+   * when the models fail to load.
+   */
+  peopleReady(): Promise<void>;
   /** Flies back to the opening view. */
   resetView(): void;
   /** Subscribes to viewer events; returns the unsubscribe function. */
@@ -112,6 +132,27 @@ export interface ViewerHandle {
   dispose(): void;
   /** Frames rendered since start, used by the bootstrap check. */
   frameCount(): number;
+}
+
+export interface ViewerOptions {
+  /**
+   * Animated people (3DV-07): character models, as converted by
+   * `scripts/blender/build_character.py`, for the people at the desks and the process
+   * avatar. Without them the procedural people sit still and the camera travels alone.
+   */
+  readonly characters?: CharacterOptions;
+}
+
+export interface CharacterOptions {
+  /** Loads a model by name, such as `gltfCharacterLoader('/models/people/')`. */
+  readonly load: CharacterLoader;
+  /** Models for the people at the desks, chosen among by workstation; they need a Type clip. */
+  readonly seated: readonly string[];
+  /**
+   * Model of the process avatar, who walks each travel carrying the order while the camera
+   * follows from behind; it needs Walk, Idle and Talk clips.
+   */
+  readonly avatar?: string;
 }
 
 export interface FocusOptions {
@@ -204,6 +245,38 @@ function declutter(layer: HTMLElement, insets: Insets): void {
   }
 }
 
+interface LoadedCharacters {
+  readonly seated: readonly CharacterModel[];
+  readonly avatar: CharacterModel | null;
+}
+
+/**
+ * Loads each named model once (the avatar may also be one of the seated models). A model
+ * that fails to load is left out, with a warning: the twin carries on without it.
+ */
+async function loadCharacters(characters: CharacterOptions): Promise<LoadedCharacters> {
+  const names = new Set([...characters.seated, ...(characters.avatar ? [characters.avatar] : [])]);
+  const loaded = new Map<string, CharacterModel>();
+  await Promise.all(
+    [...names].map(async (name) => {
+      try {
+        loaded.set(name, await characters.load(name));
+      } catch (error) {
+        console.warn(`Character model "${name}" did not load`, error);
+      }
+    }),
+  );
+  return {
+    seated: characters.seated.flatMap((name) => loaded.get(name) ?? []),
+    avatar: (characters.avatar !== undefined && loaded.get(characters.avatar)) || null,
+  };
+}
+
+function disposeCharacters(loaded: LoadedCharacters): void {
+  const models = new Set([...loaded.seated, ...(loaded.avatar ? [loaded.avatar] : [])]);
+  for (const model of models) disposeCharacterModel(model);
+}
+
 /** Field of view of the top view: narrow, so the plan looks flat, like a drawing. */
 const TOP_FOV = 26;
 const PERSPECTIVE_FOV = 55;
@@ -216,6 +289,11 @@ export interface TravelOptions {
   readonly state?: ProcessNodeState;
   /** Called when the camera has settled at the place. */
   readonly onArrive?: () => void;
+  /**
+   * Whether the avatar carries the order on this walk, as a folder in its hand: between
+   * desks the order travels in the systems, so it walks empty-handed unless set.
+   */
+  readonly carrying?: boolean;
 }
 
 /** Travel pacing: how long the line takes to draw, then the camera's walking pace. */
@@ -231,6 +309,10 @@ const TRAVEL = {
 /** Camera height above the floor while moving, and once settled at a desk or a dock. */
 const EYE_HEIGHT = 1.9;
 const SETTLE = { back: 4.8, height: 3.3, truckBack: 9, truckHeight: 5 } as const;
+/** How fast the avatar walks until told otherwise: twice a real pace, a brisk replay. */
+const DEFAULT_TRAVEL_SPEED = 2;
+/** Where the camera picks up the avatar from: behind and above it, looking at its head. */
+const FOLLOW_START = { back: 4.2, height: 2.3, look: 1.45 } as const;
 
 export interface Callout {
   readonly entity: EntityRef;
@@ -259,7 +341,7 @@ const PITCH = {
  * render loop. It holds no business logic: layout, KPI texts and states all arrive through
  * `load`, `setView` and `setRoute`, and user intent leaves through `on`.
  */
-export function createViewer(canvas: HTMLCanvasElement): ViewerHandle {
+export function createViewer(canvas: HTMLCanvasElement, options: ViewerOptions = {}): ViewerHandle {
   const container = canvas.parentElement ?? document.body;
 
   const renderer = new WebGLRenderer({
@@ -315,11 +397,127 @@ export function createViewer(canvas: HTMLCanvasElement): ViewerHandle {
     drawn: number;
   } | null = null;
 
+  /**
+   * A travel walked by the avatar: it stands at the start while the line draws, the camera
+   * coming round behind it, then walks the line with the camera following, third person;
+   * once there, the camera rises into the settled view of the place.
+   */
+  const walkTravel = (
+    walking: ProcessAvatar,
+    path: readonly NavPoint[],
+    facing: number,
+    arrow: PathArrow,
+    drawSeconds: number,
+    finish: { readonly position: Vector3; readonly target: Vector3 },
+    travelOptions: TravelOptions,
+  ): NonNullable<typeof travel> => {
+    travelId += 1;
+    const id = travelId;
+    const points = path.map((point) => point.position.clone());
+    const first = points[0]!;
+    const next = points[1]!;
+    if (!walking.root.visible || walking.root.position.distanceTo(first) > 0.5) {
+      walking.placeAt(first, Math.atan2(next.x - first.x, next.z - first.z));
+    }
+    walking.setCarrying(travelOptions.carrying ?? false);
+    walking.setPaused(false);
+    // From far off (a scene skipped to), first fly in behind the avatar.
+    if (camera.position.distanceTo(first) > TRAVEL.joinDistance) {
+      const ahead = next.clone().sub(first).setY(0);
+      if (ahead.lengthSq() === 0) ahead.set(0, 0, 1);
+      ahead.normalize();
+      rig.moveTo(
+        first
+          .clone()
+          .addScaledVector(ahead, -FOLLOW_START.back)
+          .setY(first.y + FOLLOW_START.height),
+        first.clone().setY(first.y + FOLLOW_START.look),
+        () => {
+          if (id === travelId) followAvatar();
+        },
+      );
+    } else {
+      followAvatar();
+    }
+    return {
+      arrow,
+      drawSeconds,
+      drawn: 0,
+      start: () => {
+        if (id !== travelId) return;
+        followAvatar();
+        walking.walk(points, {
+          facing,
+          onArrive: () => {
+            if (id !== travelId) return;
+            rig.moveTo(finish.position, finish.target, () => {
+              if (id !== travelId) return;
+              arrow.setState('done');
+              travelOptions.onArrive?.();
+            });
+          },
+        });
+      },
+    };
+  };
+
   const handlers = new Set<ViewerEventHandler>();
   const emit = (event: ViewerEvent): void => handlers.forEach((handler) => handler(event));
 
   let site: Site | null = null;
   let currentRoute: RouteModel = emptyRoute();
+
+  // Animated people: loaded once, then seated in every twin loaded, and the avatar made.
+  let characterModels: Promise<LoadedCharacters> | null = null;
+  let avatar: ProcessAvatar | null = null;
+  let travelSpeed = DEFAULT_TRAVEL_SPEED;
+  let peopleReady: Promise<void> = Promise.resolve();
+  let disposed = false;
+  /** Bumped whenever a travel is replaced or cleared, so a stale callback does nothing. */
+  let travelId = 0;
+
+  /** Seats the people and makes the avatar once the models are in, for the twin loaded. */
+  const animatePeople = (target: Site): void => {
+    if (!options.characters) return;
+    characterModels ??= loadCharacters(options.characters);
+    peopleReady = characterModels.then(({ seated, avatar: walking }) => {
+      if (disposed || site !== target) return;
+      if (seated.length > 0) target.seatPeople(seated);
+      if (walking && !avatar) {
+        avatar = createProcessAvatar(walking);
+        avatar.setSpeed(travelSpeed);
+        scene.add(avatar.root);
+      }
+    });
+  };
+
+  /**
+   * Where the camera settles at the end of a walk along `points` to a place: behind the
+   * visitor's spot, the way the walk arrives, raised, looking at the person (or the lorry).
+   */
+  const settleView = (
+    points: readonly Vector3[],
+    place: string,
+  ): { readonly position: Vector3; readonly target: Vector3 } => {
+    const end = points[points.length - 1]!;
+    const before = points[Math.max(0, points.length - 3)]!;
+    const arriving = end.clone().sub(before).setY(0).normalize();
+    const isTruck =
+      place.startsWith('TRUCK-') || !!site?.registry.has(entityKey({ kind: 'truck', id: place }));
+    return {
+      position: end
+        .clone()
+        .addScaledVector(arriving, -(isTruck ? SETTLE.truckBack : SETTLE.back))
+        .setY(end.y + (isTruck ? SETTLE.truckHeight : SETTLE.height)),
+      target: site?.anchors.get(place)?.clone() ?? end.clone().setY(end.y + 1.4),
+    };
+  };
+
+  /** The people walking a route, for the doors on their way. */
+  const walkers = (): readonly Walker[] => (avatar?.root.visible ? [avatar.walker] : []);
+  const followAvatar = (): void => {
+    if (avatar) rig.follow(avatar.root, { occluders: () => site?.cameraOccluders() ?? [] });
+  };
   const lookup = (entity: EntityRef): Object3D | undefined => site?.registry.get(entityKey(entity));
 
   /** Writes each stop onto its desk's label, and draws the arcs and remaining labels. */
@@ -363,7 +561,12 @@ export function createViewer(canvas: HTMLCanvasElement): ViewerHandle {
 
   const unload = (): void => {
     clearCallout();
+    travelId += 1;
+    avatar?.hide();
+    rig.follow(null);
     if (site) {
+      // The animated people share their model's geometry: they leave before the site goes.
+      site.releasePeople();
       content.remove(site.root);
       detachLabels(site.root);
       disposeObject(site.root);
@@ -414,8 +617,10 @@ export function createViewer(canvas: HTMLCanvasElement): ViewerHandle {
       }
     }
     arrows.update(elapsed);
+    // The avatar moves first, so the camera following it films where it is now.
+    avatar?.update(deltaSeconds);
     rig.update(deltaSeconds);
-    site?.update(elapsed, camera.position);
+    site?.update(elapsed, camera.position, walkers());
     route.update(elapsed, camera.position);
     marker.update(elapsed);
     pointer.update(elapsed, topView);
@@ -530,6 +735,7 @@ export function createViewer(canvas: HTMLCanvasElement): ViewerHandle {
       travel = null;
       arrows.clear();
       content.add(site.root);
+      animatePeople(site);
 
       pristine = true;
       placeHome(true);
@@ -610,10 +816,33 @@ export function createViewer(canvas: HTMLCanvasElement): ViewerHandle {
     },
     showPlace(place, onSettled) {
       const spot = site?.navigation.visit(place);
-      if (!spot) return false;
+      if (!site || !spot) return false;
       pristine = false;
       const facing = new Vector3(Math.sin(spot.facing), 0, Math.cos(spot.facing));
       const at = spot.point.position;
+      travelId += 1;
+      avatar?.setCarrying(false);
+      if (!place.startsWith('entrance:')) {
+        // At a desk, inside, with no way drawn yet: the avatar has a word with the person
+        // there, seen as at the end of a travel there, from the building's entrance; so the
+        // camera stands on the open floor someone walks in by, not outside the facade.
+        travel = null;
+        arrows.clear();
+        marker.show(null);
+        site.setView({ building: null, level: null, interior: true });
+        avatar?.placeAt(at, spot.facing, 'Talk');
+        const approach = site.navigation.route(`entrance:${spot.point.building}`, place);
+        const view = settleView(
+          approach && approach.length > 1
+            ? approach.map((point) => point.position)
+            : [at.clone().addScaledVector(facing, -1), at],
+          place,
+        );
+        rig.moveTo(view.position, view.target, onSettled);
+        return true;
+      }
+      // Someone arriving: the avatar stands at the entrance, ready to set off.
+      avatar?.placeAt(at, spot.facing);
       const target = at
         .clone()
         .addScaledVector(facing, 2)
@@ -644,20 +873,14 @@ export function createViewer(canvas: HTMLCanvasElement): ViewerHandle {
         Math.max(TRAVEL.minDraw, arrow.length / TRAVEL.drawSpeed),
       );
 
-      // The camera settles behind the visitor's spot, raised, looking at the subject.
+      const finish = settleView(floorPoints, place);
       const end = floorPoints[floorPoints.length - 1]!;
-      const before = floorPoints[Math.max(0, floorPoints.length - 3)]!;
-      const arriving = end.clone().sub(before).setY(0).normalize();
-      const isTruck =
-        place.startsWith('TRUCK-') || site.registry.has(entityKey({ kind: 'truck', id: place }));
-      const subject = site.anchors.get(place)?.clone() ?? end.clone().setY(end.y + 1.4);
-      const finish = {
-        position: end
-          .clone()
-          .addScaledVector(arriving, -(isTruck ? SETTLE.truckBack : SETTLE.back))
-          .setY(end.y + (isTruck ? SETTLE.truckHeight : SETTLE.height)),
-        target: subject,
-      };
+      if (avatar) {
+        travel = walkTravel(avatar, path, spot.facing, arrow, drawSeconds, finish, options);
+        travelPaused = false;
+        return true;
+      }
+
       // Eye-level points along the path, stopping short of the end so the camera rises
       // into its settled position instead of overshooting and turning back. On a stair the
       // camera does not follow the flights round the landing (a half-turn that disorients):
@@ -721,6 +944,7 @@ export function createViewer(canvas: HTMLCanvasElement): ViewerHandle {
     pauseTravel(paused) {
       travelPaused = paused;
       rig.pauseGlide(paused);
+      avatar?.setPaused(paused);
     },
     clearTravel() {
       travel = null;
@@ -728,6 +952,10 @@ export function createViewer(canvas: HTMLCanvasElement): ViewerHandle {
       travelPaused = false;
       rig.pauseGlide(false);
       arrows.clear();
+      travelId += 1;
+      avatar?.setPaused(false);
+      avatar?.hide();
+      rig.follow(null);
     },
     setLabelsVisible(visible) {
       site?.setLabelsVisible(visible);
@@ -740,6 +968,8 @@ export function createViewer(canvas: HTMLCanvasElement): ViewerHandle {
       pathDraw = null;
       travel = null;
       arrows.clear();
+      travelId += 1;
+      avatar?.hide();
       marker.show(null);
       rig.setMapMode(enabled);
       // The order's arcs float over the buildings; from above the floor lines tell the way.
@@ -767,6 +997,9 @@ export function createViewer(canvas: HTMLCanvasElement): ViewerHandle {
       pristine = false;
       marker.show(null);
       arrows.clear();
+      // From above, the line alone shows the way.
+      travelId += 1;
+      avatar?.hide();
       const arrow = arrows.add(
         path.map((point) => point.position.clone()),
         options.state ?? 'active',
@@ -812,6 +1045,11 @@ export function createViewer(canvas: HTMLCanvasElement): ViewerHandle {
       renderer.setAnimationLoop(enabled ? renderFrame : null);
       labels.domElement.style.visibility = enabled ? '' : 'hidden';
     },
+    peopleReady: () => peopleReady,
+    setTravelSpeed(multiplier) {
+      travelSpeed = multiplier;
+      avatar?.setSpeed(multiplier);
+    },
     resetView() {
       site?.setView({ building: null, level: null });
       rig.reset();
@@ -828,10 +1066,14 @@ export function createViewer(canvas: HTMLCanvasElement): ViewerHandle {
       placeHome(pristine);
     },
     dispose() {
+      disposed = true;
       renderer.setAnimationLoop(null);
       picker.dispose();
-      rig.dispose();
       unload();
+      rig.dispose();
+      avatar?.dispose();
+      avatar = null;
+      void characterModels?.then(disposeCharacters);
       route.dispose();
       arrows.dispose();
       disposeObject(scene);

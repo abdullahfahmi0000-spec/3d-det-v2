@@ -10,10 +10,13 @@ const twin = buildTwinModel(dataset, computeJobKpis(dataset, costAssumptions));
 const OFFICE_FLOOR = 0.45;
 const STOREY = 4;
 const HALL_FLOOR = 1.2;
+// Open floors: this covers the storeys, stairs and walkways; walking round what stands on
+// a floor is covered by the walk grid's own tests.
 const navigation = createNavigation({
   model: twin,
   elevation: (building, level) =>
     building === OFFICE_ID ? OFFICE_FLOOR + level * STOREY : HALL_FLOOR,
+  obstacles: () => [],
 });
 
 const longestStep = (path: readonly { position: { distanceTo(other: unknown): number } }[]) =>

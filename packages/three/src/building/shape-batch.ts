@@ -1,4 +1,5 @@
 import {
+  Box3,
   BoxGeometry,
   BufferAttribute,
   CylinderGeometry,
@@ -10,6 +11,7 @@ import {
   Vector3,
   type BufferGeometry,
   type Material,
+  type Object3D,
 } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
@@ -19,9 +21,13 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
  *
  * Shapes are placed relative to a transform stack: `push` moves and turns the origin,
  * `pop` restores it, which lets a piece of furniture be described in its own frame.
+ *
+ * The box each shape takes up is kept with the built group (see `solidsOf`), so that
+ * people walking through the buildings can go round what stands there.
  */
 export class ShapeBatch {
   private readonly parts = new Map<Material, BufferGeometry[]>();
+  private solids: Box3[] = [];
   private readonly stack: Matrix4[] = [];
   private current = new Matrix4();
 
@@ -41,6 +47,11 @@ export class ShapeBatch {
   pop(): this {
     this.current = this.stack.pop() ?? new Matrix4();
     return this;
+  }
+
+  /** The current origin, as a copy: where something kept out of the batch is to go. */
+  matrix(): Matrix4 {
+    return this.current.clone();
   }
 
   /** A box of the given size centred on `(x, y, z)`. */
@@ -123,11 +134,27 @@ export class ShapeBatch {
     return this.add(UNIT_SPHERE, material, local);
   }
 
+  /**
+   * Somewhere nobody walks, of the given size with its bottom at height `y`, with nothing
+   * drawn: such as the hole a stair comes up through.
+   */
+  keepOut(width: number, height: number, depth: number, x: number, y: number, z: number): this {
+    this.solids.push(
+      new Box3(
+        new Vector3(x - width / 2, y, z - depth / 2),
+        new Vector3(x + width / 2, y + height, z + depth / 2),
+      ).applyMatrix4(this.current),
+    );
+    return this;
+  }
+
   /** Any geometry under a local transform. */
   add(geometry: BufferGeometry, material: Material, local: Matrix4): this {
     const placed = geometry
       .clone()
       .applyMatrix4(new Matrix4().multiplyMatrices(this.current, local));
+    placed.computeBoundingBox();
+    this.solids.push(placed.boundingBox!.clone());
     let list = this.parts.get(material);
     if (!list) {
       list = [];
@@ -145,6 +172,8 @@ export class ShapeBatch {
   build(name: string): Group {
     const group = new Group();
     group.name = name;
+    group.userData.solids = this.solids;
+    this.solids = [];
     for (const [material, geometries] of this.parts) {
       const merged = mergeGeometries(geometries.map(stripGroups), false);
       for (const geometry of geometries) geometry.dispose();
@@ -164,6 +193,20 @@ export class ShapeBatch {
     this.parts.clear();
     return group;
   }
+}
+
+/**
+ * The boxes the shapes of every batch under `root` take up, in world coordinates. The world
+ * matrices must be up to date.
+ */
+export function solidsOf(root: Object3D): Box3[] {
+  const solids: Box3[] = [];
+  root.traverse((object) => {
+    const boxes = object.userData.solids as readonly Box3[] | undefined;
+    if (!boxes) return;
+    for (const box of boxes) solids.push(box.clone().applyMatrix4(object.matrixWorld));
+  });
+  return solids;
 }
 
 const Y_AXIS = new Vector3(0, 1, 0);

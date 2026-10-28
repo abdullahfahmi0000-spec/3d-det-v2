@@ -11,6 +11,8 @@ export default tseslint.config(
       '**/.turbo/**',
       '**/node_modules/**',
       'packages/db/generated/**',
+      // three.js's Draco decoder, copied in for the viewer demo to serve.
+      '**/public/draco/**',
     ],
   },
   js.configs.recommended,

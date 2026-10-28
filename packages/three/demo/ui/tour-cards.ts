@@ -29,6 +29,35 @@ export interface TourContext {
 
 type Row = readonly [label: string, value: string, tone?: 'good' | 'warn' | 'bad'];
 
+/**
+ * The card pinned beside the person who receives the order, once the avatar has walked in to
+ * their desk. It comes in through the systems (mail, portal or EDI), to whoever registers it:
+ * the first step's person.
+ */
+export function arrivalCard(
+  context: TourContext,
+  scene: Extract<TourScene, { kind: 'stop' }>,
+): HTMLElement {
+  const { dataset } = context;
+  const { instance } = context.progress;
+  const started = find(scene.step.events, 'Started');
+  const clerk =
+    started?.by && started.by !== AI_AGENT_ID ? personById(dataset, started.by) : undefined;
+  const job = clerk ? nodeByCode(dataset, clerk.jobCode)?.name : undefined;
+  return card(
+    '✉',
+    'in-progress',
+    'New order received',
+    `${instance.orderRef} from ${instance.customer}`,
+    clerk ? person(clerk.fullName, [job, 'registers it'], 'person') : null,
+    [
+      ['Arrived', formatDateTime(instance.startedAt)],
+      ['Amount', formatMoney(instance.amount, instance.currency)],
+    ],
+    [],
+  );
+}
+
 /** The card pinned beside a person (or the lorry) while the walk stops there. */
 export function stopCard(
   context: TourContext,

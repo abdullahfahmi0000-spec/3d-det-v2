@@ -3,8 +3,10 @@ import {
   CatmullRomCurve3,
   MathUtils,
   MOUSE,
+  Raycaster,
   Sphere,
   Vector3,
+  type Object3D,
   type PerspectiveCamera,
 } from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
@@ -38,7 +40,34 @@ export interface CameraRig {
   setMapMode(enabled: boolean): void;
   /** Flies straight to a camera position and target. */
   moveTo(position: Vector3, target: Vector3, onSettled?: () => void): void;
+  /**
+   * Films a moving object from behind, like a third-person game camera: the camera rides
+   * behind and above it, turns with it, and closes in when an occluder comes between. The
+   * object's forward is its +Z. The view cannot be dragged meanwhile; null stops following,
+   * handing the orbit back centred where the camera was looking. Framing, flying or
+   * gliding anywhere also stops it.
+   */
+  follow(target: Object3D | null, options?: FollowOptions): void;
+  /** Whether the camera is following an object. */
+  readonly following: boolean;
   dispose(): void;
+}
+
+/** How a followed object is filmed. */
+export interface FollowOptions {
+  /** Metres behind the object. */
+  readonly distance?: number;
+  /** Metres above the object's origin (its feet) the camera rides. */
+  readonly height?: number;
+  /** The camera looks at a point this high above the object... */
+  readonly lookHeight?: number;
+  /** ...and this far ahead of it, so that it sees where the object is going. */
+  readonly lookAhead?: number;
+  /**
+   * Surfaces the camera must stay in front of, such as doors: when one comes between the
+   * object and the camera, the camera closes in rather than film it from behind.
+   */
+  readonly occluders?: () => readonly Object3D[];
 }
 
 export interface CameraRigOptions {
@@ -88,6 +117,24 @@ const MIN_GLIDE_SECONDS = 2.5;
 /** In map mode the camera stays within this angle of straight down. */
 export const MAP_TILT = 0.02;
 const MIN_FRAMING_DISTANCE = 9;
+/** Third person, for someone walking: a few steps behind, a head above. */
+const FOLLOW_DEFAULTS = { distance: 4.2, height: 2.3, lookHeight: 1.45, lookAhead: 1.6 } as const;
+/** How quickly the camera catches up with where it should be (1/s); higher is stiffer. */
+const FOLLOW_STIFFNESS = 4;
+const LOOK_STIFFNESS = 7;
+/**
+ * Least distance the camera keeps from the followed object's head when an occluder pushes
+ * it in, and how far in front of the occluder it stops.
+ */
+const FOLLOW_MIN_DISTANCE = 0.4;
+const FOLLOW_CLEARANCE = 0.25;
+/**
+ * When something forces the camera this close behind the followed object's head, such as
+ * the back wall at a stair landing, it rises to look down over its shoulder instead, if
+ * the way there is clear: this far behind the head and this far above it.
+ */
+const FOLLOW_CLOSE = 1.5;
+const FOLLOW_OVER = { back: 0.9, up: 1.15 } as const;
 
 interface Flight {
   readonly fromPosition: Vector3;
@@ -124,6 +171,78 @@ export function createCameraRig(
   let flight: Flight | null = null;
   let glide: Glide | null = null;
   let gliding = false;
+
+  let followed: Object3D | null = null;
+  let followOptions: FollowOptions = {};
+  const look = new Vector3();
+  const followedAt = new Vector3();
+  const forward = new Vector3();
+  const head = new Vector3();
+  const wanted = new Vector3();
+  const lookWanted = new Vector3();
+  const over = new Vector3();
+  const ray = new Raycaster();
+
+  /** How far from the followed object's head an occluder is on the way to `point`, if any. */
+  const blockedAt = (point: Vector3, occluders: readonly Object3D[]): number | null => {
+    if (occluders.length === 0) return null;
+    const toPoint = point.clone().sub(head);
+    const length = toPoint.length();
+    if (length < 1e-6) return null;
+    ray.set(head, toPoint.normalize());
+    ray.far = length;
+    return ray.intersectObjects(occluders as Object3D[], false)[0]?.distance ?? null;
+  };
+
+  /** Moves `point` toward the followed object's head until nothing stands between them. */
+  const pullInFront = (point: Vector3, occluders: readonly Object3D[]): void => {
+    const hit = blockedAt(point, occluders);
+    if (hit === null) return;
+    const toPoint = point.clone().sub(head).normalize();
+    point
+      .copy(head)
+      .addScaledVector(toPoint, Math.max(FOLLOW_MIN_DISTANCE, hit - FOLLOW_CLEARANCE));
+  };
+
+  /** Moves the camera toward its place behind the followed object, looking ahead of it. */
+  const chase = (target: Object3D, deltaSeconds: number): void => {
+    const o = { ...FOLLOW_DEFAULTS, ...followOptions };
+    target.getWorldPosition(followedAt);
+    target.getWorldDirection(forward).setY(0);
+    if (forward.lengthSq() < 1e-6) forward.set(0, 0, 1);
+    forward.normalize();
+
+    head.copy(followedAt).y += o.lookHeight;
+    wanted
+      .copy(followedAt)
+      .addScaledVector(forward, -o.distance)
+      .setY(followedAt.y + o.height);
+    const occluders = followOptions.occluders?.() ?? [];
+    pullInFront(wanted, occluders);
+    if (wanted.distanceTo(head) < FOLLOW_CLOSE) {
+      over
+        .copy(head)
+        .addScaledVector(forward, -FOLLOW_OVER.back)
+        .setY(head.y + FOLLOW_OVER.up);
+      if (blockedAt(over, occluders) === null) wanted.copy(over);
+    }
+    lookWanted.copy(followedAt).addScaledVector(forward, o.lookAhead).setY(head.y);
+
+    camera.position.lerp(wanted, 1 - Math.exp(-deltaSeconds * FOLLOW_STIFFNESS));
+    // Easing toward that place can carry the camera behind a door swinging open: then it
+    // jumps in front of it rather than film it from behind.
+    pullInFront(camera.position, occluders);
+    look.lerp(lookWanted, 1 - Math.exp(-deltaSeconds * LOOK_STIFFNESS));
+    camera.lookAt(look);
+  };
+
+  /** Stops following, handing the orbit back centred where the camera was looking. */
+  const release = (): void => {
+    if (!followed) return;
+    followed = null;
+    controls.target.copy(look);
+    controls.enabled = true;
+  };
 
   const smooth = (edge0: number, edge1: number, x: number): number => {
     const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
@@ -199,7 +318,14 @@ export function createCameraRig(
   };
 
   return {
+    get following() {
+      return followed !== null;
+    },
     update(deltaSeconds) {
+      if (followed) {
+        chase(followed, deltaSeconds);
+        return;
+      }
       if (glide) {
         advanceGlide(deltaSeconds);
       } else {
@@ -209,6 +335,7 @@ export function createCameraRig(
       controls.update();
     },
     glide(points, glideOptions) {
+      release();
       flight = null;
       const curve = new CatmullRomCurve3(
         [camera.position.clone(), ...points, glideOptions.finish.position.clone()],
@@ -246,11 +373,25 @@ export function createCameraRig(
       gliding = !paused;
     },
     moveTo(position, target, onSettled) {
+      release();
       glide = null;
       controls.enabled = true;
       flyTo(position.clone(), target.clone(), onSettled);
     },
+    follow(target, followWith = {}) {
+      if (!target) {
+        release();
+        return;
+      }
+      if (!followed) look.copy(controls.target);
+      flight = null;
+      glide = null;
+      followed = target;
+      followOptions = followWith;
+      controls.enabled = false;
+    },
     frame(bounds, frameOptions = {}) {
+      release();
       glide = null;
       controls.enabled = true;
       const sphere = bounds.getBoundingSphere(new Sphere());
@@ -284,6 +425,7 @@ export function createCameraRig(
       );
     },
     reset(onSettled) {
+      release();
       glide = null;
       controls.enabled = true;
       flyTo(home.position.clone(), home.target.clone(), onSettled);

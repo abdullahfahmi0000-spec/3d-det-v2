@@ -1,4 +1,4 @@
-import { Vector3 } from 'three';
+import { Vector3, type Box3 } from 'three';
 
 import type {
   GroundPoint,
@@ -7,7 +7,8 @@ import type {
   TwinViewModel,
   WorkstationModel,
 } from '../viewer-contract/twin-model';
-import { fromRoomFrame, roomFrame, stairLayout } from './create-room';
+import { fromRoomFrame, insideFacade, roomFrame, stairLayout } from './create-room';
+import { createWalkPlanner, WalkGrid, type WalkLink } from './create-walk-grid';
 import { pointOnSide, sideFrame } from './frames';
 
 /** A point on a walk, with the storey it is on so the view can follow the walker. */
@@ -19,9 +20,11 @@ export interface NavPoint {
 
 export interface Navigation {
   /**
-   * The walk from one place to another: workstation entity ids or truck entity ids. It
-   * runs through doors, along corridors, up and down stairs and across walkways. Null when
-   * either place is unknown or unreachable.
+   * The shortest walk from one place to another: workstation entity ids, truck entity ids
+   * or `entrance:<building>`. It goes round everything standing in the buildings
+   * (furniture, walls, the leaves of open doors), keeping clear of them where there is room,
+   * through doorways, up and down stairs and across walkways. Null when either place is
+   * unknown or unreachable.
    */
   route(from: string, to: string): NavPoint[] | null;
   /** Where a visitor stands at a place, and the direction they face (radians, 0 is +Z). */
@@ -32,184 +35,134 @@ export interface NavigationInput {
   readonly model: TwinViewModel;
   /** Finished-floor height of a storey, by building entity id and level. */
   readonly elevation: (building: string, level: number) => number;
+  /**
+   * What stands in a building, by entity id, in world coordinates: the boxes of what it is
+   * built of (see `solidsOf`).
+   */
+  readonly obstacles: (building: string) => readonly Box3[];
 }
 
-interface Node {
-  readonly id: number;
-  readonly point: NavPoint;
-}
-
-interface Edge {
-  readonly to: number;
-  readonly cost: number;
-  /** Points walked between the two nodes, such as the steps of a stair. */
-  readonly via: readonly NavPoint[];
-}
-
-/** How far a door's walking points sit inside and outside the doorway. */
+/** How far outside the doorway the building's entrance is. */
 const DOOR_CLEARANCE = 0.75;
-/** Climbing is slower than walking, so routes avoid needless stairs. */
-const STAIR_COST = 2.5;
+/** Where someone arriving by stair steps off it: this far in front of the top step. */
+const STAIR_LANDING = 0.6;
+/** How far inside a building a walkway's end is, past its door. */
+const WALKWAY_INSIDE = 1.4;
+/**
+ * The steps at the high end of a walkway, up to the floor of the building there: how many,
+ * and how deep each is. Shared with the walkway's geometry, so feet land on the steps.
+ */
+export const WALKWAY_STEPS = 3;
+export const WALKWAY_TREAD = 0.4;
 
 /**
- * Builds the walking network of the twin from its model: corridor and aisle centre lines,
- * a node inside and outside each room door, a stair between each pair of storeys, the
- * walkways between buildings, and a standing point beside every workstation and inside
- * every loading dock. Routes are shortest paths over it.
+ * Builds the walking of the twin from its model and what stands in its buildings: each
+ * storey's floor as a grid to walk round things on (see `create-walk-grid.ts`), the stairs
+ * between storeys and the walkways between buildings, and a standing point beside every
+ * workstation and inside every loading dock. Routes are the shortest walks over them.
  */
-export function createNavigation({ model, elevation }: NavigationInput): Navigation {
-  const nodes: Node[] = [];
-  const edges = new Map<number, Edge[]>();
-  const places = new Map<string, { node: Node; facing: number }>();
+export function createNavigation({ model, elevation, obstacles }: NavigationInput): Navigation {
+  const places = new Map<string, { point: NavPoint; facing: number }>();
+  const grids: WalkGrid[] = [];
+  const links: WalkLink[] = [];
 
-  const addNode = (point: NavPoint): Node => {
-    const node = { id: nodes.length, point };
-    nodes.push(node);
-    edges.set(node.id, []);
-    return node;
-  };
-  const link = (a: Node, b: Node, via: readonly NavPoint[] = [], weight = 1): void => {
-    const path = [a.point, ...via, b.point];
-    let length = 0;
-    for (let index = 1; index < path.length; index += 1) {
-      length += path[index]!.position.distanceTo(path[index - 1]!.position);
-    }
-    edges.get(a.id)!.push({ to: b.id, cost: length * weight, via });
-    edges.get(b.id)!.push({ to: a.id, cost: length * weight, via: [...via].reverse() });
-  };
+  const floorOf = (building: GroundRect, id: string, level: number): WalkGrid =>
+    new WalkGrid(
+      {
+        building: id,
+        level,
+        elevation: elevation(id, level),
+        minX: building.center[0] - building.size[0] / 2,
+        maxX: building.center[0] + building.size[0] / 2,
+        minZ: building.center[1] - building.size[1] / 2,
+        maxZ: building.center[1] + building.size[1] / 2,
+      },
+      obstacles(id),
+    );
 
-  /** One storey's corridors, which doors and desks are joined to at their nearest point. */
-  const storeyNets = new Map<string, CorridorNet>();
-  const netFor = (building: string, level: number): CorridorNet | undefined =>
-    storeyNets.get(`${building}#${level}`);
-
-  // Offices: corridors, rooms and stairs on each floor.
   for (const office of model.offices) {
     const building = office.entity.id;
     const toWorld = localToWorld(office, (level) => elevation(building, level), building);
 
     for (const floor of office.floors) {
-      const net = new CorridorNet(addNode, link, (local) => toWorld(local, floor.level));
-      for (const corridor of floor.corridors ?? []) net.addLine(corridor);
-      storeyNets.set(`${building}#${floor.level}`, net);
-    }
+      grids.push(floorOf(office, building, floor.level));
 
-    for (const floor of office.floors) {
-      const net = netFor(building, floor.level)!;
-      const insides = new Map<string, Node>();
-      for (const room of floor.rooms) {
-        if (room.kind === 'core') continue;
-        const door = doorPoints(room);
-        if (!door) continue;
-        const inside = addNode(toWorld(door.inside, floor.level));
-        const outside = addNode(toWorld(door.outside, floor.level));
-        link(inside, outside);
-        net.attach(outside);
-        insides.set(room.id, inside);
-        // The building's entrance is outside the lobby door, facing in.
-        if (room.kind === 'lobby' && floor.level === 0) {
-          const inward = inside.point.position.clone().sub(outside.point.position);
-          places.set(`entrance:${building}`, {
-            node: outside,
-            facing: Math.atan2(inward.x, inward.z),
-          });
-        }
+      // The building's entrance is outside the lobby door, facing in.
+      const lobby = floor.level === 0 && floor.rooms.find((room) => room.kind === 'lobby');
+      const door = lobby ? doorPoints(insideFacade(lobby, office)) : null;
+      if (door) {
+        const outside = toWorld(door.outside, 0);
+        const inward = toWorld(door.inside, 0).position.sub(outside.position);
+        places.set(`entrance:${building}`, {
+          point: outside,
+          facing: Math.atan2(inward.x, inward.z),
+        });
       }
 
-      // Each stair climbs from this floor's first flight to the next floor's landing.
-      const core = floor.rooms.find((room) => room.kind === 'core');
+      // Each stair climbs from in front of this floor's first flight to the floor above,
+      // stepping off in front of its top step.
+      const coreRoom = floor.rooms.find((room) => room.kind === 'core');
       const above = office.floors.find((candidate) => candidate.level === floor.level + 1);
-      const aboveNet = above ? netFor(building, above.level) : undefined;
-      if (core && above && aboveNet) {
+      if (coreRoom && above) {
+        const core = insideFacade(coreRoom, office);
         const stairs = stairLayout(core);
-        const at = (x: number, z: number, height: number): NavPoint => ({
-          ...toWorld(fromRoomFrame(core, x, z), floor.level),
-          position: toWorld(fromRoomFrame(core, x, z), floor.level).position.setY(height),
-        });
         const low = elevation(building, floor.level);
         const high = elevation(building, above.level);
         const middle = (low + high) / 2;
-        const bottom = addNode(
-          toWorld(fromRoomFrame(core, stairs.firstFlight, stairs.front + 0.8), floor.level),
-        );
-        const top = addNode(
-          toWorld(fromRoomFrame(core, stairs.secondFlight, stairs.front + 0.8), above.level),
-        );
-        net.attach(bottom);
-        aboveNet.attach(top);
         // Every point on the stair belongs to the lower floor, which is the one opened up
         // while someone is on it (the floor above would hide the flights).
-        link(
-          bottom,
-          top,
-          [
-            at(stairs.firstFlight, stairs.front - 1.1, low),
-            at(stairs.firstFlight, stairs.back + 1.2, middle),
+        const at = (x: number, z: number, height: number, level = floor.level): NavPoint => {
+          const point = toWorld(fromRoomFrame(core, x, z), level);
+          return { ...point, position: point.position.setY(height) };
+        };
+        // Each flight is walked along the line through the middle of its treads, so feet
+        // land on steps.
+        const half = stairs.going / 2;
+        links.push({
+          from: at(stairs.firstFlight, stairs.flightFront + STAIR_LANDING, low),
+          via: [
+            at(stairs.firstFlight, stairs.flightFront + half, low),
+            at(stairs.firstFlight, stairs.flightBack + half, middle),
             at(stairs.firstFlight, stairs.back + 0.6, middle),
             at(stairs.secondFlight, stairs.back + 0.6, middle),
-            at(stairs.secondFlight, stairs.back + 1.2, middle),
-            at(stairs.secondFlight, stairs.front - 1.1, high),
+            at(stairs.secondFlight, stairs.flightBack - half, middle),
+            at(stairs.secondFlight, stairs.flightFront - half, high),
           ],
-          STAIR_COST,
-        );
+          to: at(stairs.secondFlight, stairs.flightFront + STAIR_LANDING, high, above.level),
+        });
       }
 
       for (const station of model.workstations) {
         if (station.building !== building || station.level !== floor.level) continue;
-        const room = floor.rooms.find((candidate) =>
-          contains(candidate, toLocal(office, station.position)),
-        );
-        addStation(
-          station,
-          room ? insides.get(room.id) : undefined,
-          net,
-          toWorld,
-          floor.level,
-          office,
-        );
+        addStation(station, toWorld, floor.level, office);
       }
     }
   }
 
-  // Halls: aisles, rooms built inside, docks and the posts on the floor.
   for (const hall of model.halls) {
     const building = hall.entity.id;
     const toWorld = localToWorld(hall, () => elevation(building, 0), building);
-    const net = new CorridorNet(addNode, link, (local) => toWorld(local, 0));
-    for (const aisle of hall.aisles ?? []) net.addLine(aisle);
-    storeyNets.set(`${building}#0`, net);
-
-    const insides = new Map<string, Node>();
-    for (const room of hall.rooms) {
-      const door = doorPoints(room);
-      if (!door) continue;
-      const inside = addNode(toWorld(door.inside, 0));
-      const outside = addNode(toWorld(door.outside, 0));
-      link(inside, outside);
-      net.attach(outside);
-      insides.set(room.id, inside);
-    }
+    grids.push(floorOf(hall, building, 0));
 
     // A visitor waits just inside the dock door, facing the truck outside.
     const [width, depth] = hall.size;
     const facingOut = sideFrame(hall.dockSide, width, depth, 0).place[3];
     for (const dock of hall.docks) {
       if (!dock.truck) continue;
-      const node = addNode(toWorld(pointOnSide(hall.dockSide, width, depth, dock.offset, -2.2), 0));
-      net.attach(node);
-      places.set(dock.truck.entity.id, { node, facing: facingOut });
+      places.set(dock.truck.entity.id, {
+        point: toWorld(pointOnSide(hall.dockSide, width, depth, dock.offset, -2.2), 0),
+        facing: facingOut,
+      });
     }
 
     for (const station of model.workstations) {
       if (station.building !== building) continue;
-      const room = hall.rooms.find((candidate) =>
-        contains(candidate, toLocal(hall, station.position)),
-      );
-      addStation(station, room ? insides.get(room.id) : undefined, net, toWorld, 0, hall);
+      addStation(station, toWorld, 0, hall);
     }
   }
 
-  // Walkways join the nearest corridor point of the buildings at either end.
+  // Walkways run between doors of the buildings at either end, flat at the lower floor's
+  // height, then a few steps up at the end.
   for (const walkway of model.walkways) {
     const ends = [walkway.from, walkway.to].map((end, index) => {
       const other = index === 0 ? walkway.to : walkway.from;
@@ -224,14 +177,11 @@ export function createNavigation({ model, elevation }: NavigationInput): Navigat
       const height = elevation(building, 0);
       // Step a little inside the building, away from the walkway.
       const direction = new Vector3(end[0] - other[0], 0, end[1] - other[1]).normalize();
-      const inside = new Vector3(end[0], height, end[1]).addScaledVector(direction, 1.4);
-      const node = addNode({ position: inside, building, level: 0 });
-      netFor(building, 0)?.attach(node);
-      return { node, end, height, building };
+      const inside = new Vector3(end[0], height, end[1]).addScaledVector(direction, WALKWAY_INSIDE);
+      return { point: { position: inside, building, level: 0 }, end, height, building };
     });
     const [start, finish] = ends;
     if (!start || !finish) continue;
-    // Flat along the walkway at the lower floor's height, then a few steps up at the end.
     const lowEnd = start.height <= finish.height ? start : finish;
     const highEnd = lowEnd === start ? finish : start;
     const along = new Vector3(highEnd.end[0] - lowEnd.end[0], 0, highEnd.end[1] - lowEnd.end[1]);
@@ -242,24 +192,34 @@ export function createNavigation({ model, elevation }: NavigationInput): Navigat
       building: lowEnd.building,
       level: 0,
     });
-    const via = [
-      at(0, lowEnd.height),
-      at(length - 1.4, lowEnd.height),
-      { ...at(length, highEnd.height), building: highEnd.building },
-    ];
-    link(lowEnd.node, highEnd.node, via);
+    // Up the steps through the middle of each.
+    const rise = (highEnd.height - lowEnd.height) / WALKWAY_STEPS;
+    const steps = Array.from({ length: WALKWAY_STEPS }, (_, index) =>
+      at(
+        length - (WALKWAY_STEPS - index - 0.5) * WALKWAY_TREAD,
+        lowEnd.height + rise * (index + 1),
+      ),
+    );
+    links.push({
+      from: lowEnd.point,
+      via: [
+        at(0, lowEnd.height),
+        at(length - WALKWAY_STEPS * WALKWAY_TREAD - 0.2, lowEnd.height),
+        ...steps,
+        { ...at(length, highEnd.height), building: highEnd.building },
+      ],
+      to: highEnd.point,
+    });
   }
 
-  for (const net of storeyNets.values()) net.finish();
+  const planner = createWalkPlanner(grids, links);
 
   /**
-   * Joins a workstation to the network at the spot a visitor would stand: beside and just
-   * behind the chair, approached along the open lane behind the row of desks.
+   * The spot a visitor to a workstation stands at: beside and just behind the chair,
+   * facing the seat.
    */
   function addStation(
     station: WorkstationModel,
-    roomInside: Node | undefined,
-    net: CorridorNet,
     toWorld: (local: GroundPoint, level: number) => NavPoint,
     level: number,
     building: GroundRect,
@@ -272,174 +232,32 @@ export function createNavigation({ model, elevation }: NavigationInput): Navigat
     const side = station.kind === 'executive' ? 1.3 : station.kind === 'standing' ? 1.0 : 0.9;
     const back = station.kind === 'standing' ? 0 : 0.55;
     const standing = seat.clone().addScaledVector(forward, -back).addScaledVector(right, -side);
-    const local = (point: Vector3): GroundPoint => toLocal(building, [point.x, point.z]);
-    const visitor = addNode(toWorld(local(standing), level));
-    const facing = Math.atan2(seat.x - standing.x, seat.z - standing.z);
-    places.set(station.entity.id, { node: visitor, facing });
-
-    if (!roomInside) {
-      net.attach(visitor);
-      return;
-    }
-    // From the door, turn into the lane behind the chairs (desks), or walk up the side
-    // of the desk first (executive desks, whose back is against the credenza).
-    const door = roomInside.point.position;
-    const corner =
-      station.kind === 'executive'
-        ? standing.clone().addScaledVector(forward, -forward.dot(standing.clone().sub(door)))
-        : standing.clone().addScaledVector(right, right.dot(door.clone().sub(standing)));
-    const cornerNode = addNode(toWorld(local(corner), level));
-    link(roomInside, cornerNode);
-    link(cornerNode, visitor);
+    places.set(station.entity.id, {
+      point: toWorld(toLocal(building, [standing.x, standing.z]), level),
+      facing: Math.atan2(seat.x - standing.x, seat.z - standing.z),
+    });
   }
 
   return {
     route(from, to) {
-      const start = places.get(from)?.node;
-      const goal = places.get(to)?.node;
+      const start = places.get(from);
+      const goal = places.get(to);
       if (!start || !goal) return null;
-      const path = shortestPath(nodes.length, edges, start.id, goal.id);
-      if (!path) return null;
-      const points: NavPoint[] = [start.point];
-      for (const step of path) {
-        points.push(...step.via, nodes[step.to]!.point);
-      }
-      return points;
+      return planner.route(start.point, goal.point);
     },
     visit(place) {
       const found = places.get(place);
-      return found ? { point: found.node.point, facing: found.facing } : null;
+      return found
+        ? {
+            point: { ...found.point, position: found.point.position.clone() },
+            facing: found.facing,
+          }
+        : null;
     },
   };
 }
 
 // ---------------------------------------------------------------------------------------
-
-/**
- * The corridors of one storey. Points attached to it are joined to their nearest spot on
- * a corridor line; once everything is attached, `finish` links the spots along each line
- * in order, so walking along a corridor passes each door rather than detouring.
- */
-class CorridorNet {
-  private readonly lines: { points: Node[]; stops: { distance: number; node: Node }[] }[] = [];
-
-  constructor(
-    private readonly addNode: (point: NavPoint) => Node,
-    private readonly link: (a: Node, b: Node) => void,
-    private readonly toWorld: (local: GroundPoint) => NavPoint,
-  ) {}
-
-  addLine(line: readonly GroundPoint[]): void {
-    const points = line.map((point) => this.addNode(this.toWorld(point)));
-    let distance = 0;
-    const stops = points.map((node, index) => {
-      if (index > 0) distance += node.point.position.distanceTo(points[index - 1]!.point.position);
-      return { distance, node };
-    });
-    this.lines.push({ points, stops });
-  }
-
-  attach(node: Node): void {
-    let best: { line: number; distance: number; point: Vector3; gap: number } | null = null;
-    for (const [index, line] of this.lines.entries()) {
-      const spot = nearestOnLine(line.points, node.point.position);
-      if (spot && (!best || spot.gap < best.gap)) best = { line: index, ...spot };
-    }
-    if (!best) return;
-    const spot = this.addNode({ ...node.point, position: best.point.setY(node.point.position.y) });
-    this.lines[best.line]!.stops.push({ distance: best.distance, node: spot });
-    this.link(node, spot);
-  }
-
-  finish(): void {
-    // Where a line ends on another (a side aisle meeting the main one), they join.
-    for (const line of this.lines) {
-      for (const end of [line.points[0], line.points[line.points.length - 1]]) {
-        if (!end) continue;
-        for (const other of this.lines) {
-          if (other === line) continue;
-          const spot = nearestOnLine(other.points, end.point.position);
-          if (spot && spot.gap < JOIN_DISTANCE)
-            other.stops.push({ distance: spot.distance, node: end });
-        }
-      }
-    }
-    for (const line of this.lines) {
-      line.stops.sort((a, b) => a.distance - b.distance);
-      for (let index = 1; index < line.stops.length; index += 1) {
-        this.link(line.stops[index - 1]!.node, line.stops[index]!.node);
-      }
-    }
-  }
-}
-
-/** Lines whose ends come this close to another line are joined to it. */
-const JOIN_DISTANCE = 0.6;
-
-/** The nearest point on a polyline, its distance along the line and its gap from `point`. */
-function nearestOnLine(
-  line: readonly Node[],
-  point: Vector3,
-): { distance: number; point: Vector3; gap: number } | null {
-  let best: { distance: number; point: Vector3; gap: number } | null = null;
-  let travelled = 0;
-  for (let index = 1; index < line.length; index += 1) {
-    const a = line[index - 1]!.point.position;
-    const b = line[index]!.point.position;
-    const segment = b.clone().sub(a);
-    const length = segment.length();
-    if (length === 0) continue;
-    const t = Math.max(0, Math.min(1, point.clone().sub(a).dot(segment) / (length * length)));
-    const spot = a.clone().addScaledVector(segment, t);
-    const gap = Math.hypot(spot.x - point.x, spot.z - point.z);
-    if (!best || gap < best.gap) best = { distance: travelled + t * length, point: spot, gap };
-    travelled += length;
-  }
-  return best;
-}
-
-/** Dijkstra over the network; returns the edges walked, in order. */
-function shortestPath(
-  count: number,
-  edges: ReadonlyMap<number, readonly Edge[]>,
-  start: number,
-  goal: number,
-): Edge[] | null {
-  const cost = new Array<number>(count).fill(Infinity);
-  const previous = new Array<{ from: number; edge: Edge } | null>(count).fill(null);
-  const done = new Set<number>();
-  cost[start] = 0;
-  for (;;) {
-    let current = -1;
-    for (let index = 0; index < count; index += 1) {
-      if (
-        !done.has(index) &&
-        cost[index]! < Infinity &&
-        (current < 0 || cost[index]! < cost[current]!)
-      ) {
-        current = index;
-      }
-    }
-    if (current < 0) return null;
-    if (current === goal) break;
-    done.add(current);
-    for (const edge of edges.get(current) ?? []) {
-      const next = cost[current]! + edge.cost;
-      if (next < cost[edge.to]!) {
-        cost[edge.to] = next;
-        previous[edge.to] = { from: current, edge };
-      }
-    }
-  }
-  const path: Edge[] = [];
-  for (let at = goal; at !== start;) {
-    const step = previous[at];
-    if (!step) return null;
-    path.unshift(step.edge);
-    at = step.from;
-  }
-  return path;
-}
 
 /** Points just inside and just outside the middle of a room's door. */
 function doorPoints(room: RoomModel): { inside: GroundPoint; outside: GroundPoint } | null {

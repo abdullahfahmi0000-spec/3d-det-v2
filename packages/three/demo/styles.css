@@ -1310,10 +1310,11 @@ body.is-touring #play-tour {
   top: calc(var(--gap) + 48px);
   left: var(--stage-centre);
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 6px;
-  width: min(620px, calc(100% - 700px));
-  min-width: 420px;
+  width: min(820px, calc(100% - 660px));
+  min-width: 460px;
   padding: 6px;
   transform: translateX(-50%);
 }
@@ -1353,11 +1354,50 @@ body.is-touring #play-tour {
 
 .tour-status {
   display: flex;
-  flex: 1;
+  flex: 1 1 160px;
   flex-direction: column;
   gap: 5px;
   min-width: 0;
   padding: 0 6px;
+}
+
+/* Stepping by hand: the mode button says so in the waiting colour. */
+.tour-bar.is-manual .tour-mode {
+  border-color: var(--state-waiting);
+  color: var(--state-waiting);
+}
+
+/* How fast the avatar walks; the 2D view has no avatar. */
+.tour-speed {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.tour-speed-input {
+  width: 84px;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.tour-speed-value {
+  min-width: 28px;
+  color: var(--text);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+body.is-plan .tour-speed {
+  display: none;
 }
 
 .tour-label {

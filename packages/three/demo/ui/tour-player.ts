@@ -23,18 +23,28 @@ export interface SceneControls {
 }
 
 export interface TourPlayer {
-  /** Starts the walk, optionally at a later scene. */
+  /** Starts the walk, optionally at a later scene, stepping on by itself. */
   play(scenes: readonly PlayerScene[], startAt?: number): void;
   stop(): void;
   readonly playing: boolean;
+  /** Whether the walk steps on by itself, rather than only when asked to. */
+  readonly automatic: boolean;
 }
 
 /**
- * Runs a guided walk scene by scene, with a control bar: back, pause or resume, next and
- * stop, the scene counter and a progress track whose current segment fills over the
- * scene's length.
+ * Runs a guided walk scene by scene, with a control bar: back, pause or resume, next, the
+ * scene counter and a progress track whose current segment fills over the scene's length,
+ * any `tools` the page adds, and stop.
+ *
+ * Each scene follows the last by itself once its time is up. Stepping back or on by hand
+ * makes the walk manual: a scene then stays until the next step is asked for. The Auto
+ * button lets it step on by itself again.
  */
-export function createTourPlayer(bar: HTMLElement, onStop: () => void): TourPlayer {
+export function createTourPlayer(
+  bar: HTMLElement,
+  onStop: () => void,
+  tools: readonly HTMLElement[] = [],
+): TourPlayer {
   let scenes: readonly PlayerScene[] = [];
   let index = -1;
   let timer: number | undefined;
@@ -42,6 +52,9 @@ export function createTourPlayer(bar: HTMLElement, onStop: () => void): TourPlay
   let remaining = 0;
   let paused = false;
   let sceneTimers: number[] = [];
+  let automatic = true;
+  /** Whether the scene shown has run its time, and waits only for a step by hand. */
+  let finished = false;
 
   const label = el('span', { className: 'tour-label' });
   const track = el('div', { className: 'tour-track' });
@@ -54,20 +67,52 @@ export function createTourPlayer(bar: HTMLElement, onStop: () => void): TourPlay
     control.addEventListener('click', action);
     return control;
   };
-  const back = button('‹', 'Previous step', () => go(index - 1));
+  const back = button('‹', 'Previous step', () => {
+    setAutomatic(false);
+    go(index - 1);
+  });
   const pause = button('Pause', 'Pause', () => (paused ? resume() : hold()));
-  const next = button('›', 'Next step', () => go(index + 1));
+  const next = button('›', 'Next step', () => {
+    setAutomatic(false);
+    go(index + 1);
+  });
+  const mode = button('Auto', '', () => setAutomatic(!automatic));
   const stop = button('Stop', 'Stop the walk', () => end());
   pause.classList.add('wide');
+  mode.classList.add('wide', 'tour-mode');
   stop.classList.add('wide');
   bar.replaceChildren(
     back,
     pause,
     next,
     el('div', { className: 'tour-status' }, label, track),
+    ...tools,
+    mode,
     stop,
   );
   bar.hidden = true;
+
+  function setAutomatic(on: boolean): void {
+    automatic = on;
+    mode.textContent = on ? 'Auto' : 'Manual';
+    const title = on
+      ? 'Steps follow on by themselves: click to step by hand'
+      : 'Stepping by hand: click to let the steps follow on by themselves';
+    mode.title = title;
+    mode.setAttribute('aria-label', title);
+    mode.setAttribute('aria-pressed', String(on));
+    bar.classList.toggle('is-manual', !on);
+    // A scene that has already run its time moves on as soon as it may.
+    if (on && finished && !paused) go(index + 1);
+  }
+  setAutomatic(true);
+
+  /** The scene shown has run its time: on to the next one, unless stepping by hand. */
+  const timeUp = (): void => {
+    timer = undefined;
+    finished = true;
+    if (automatic) go(index + 1);
+  };
 
   const clearTimers = (): void => {
     window.clearTimeout(timer);
@@ -80,7 +125,7 @@ export function createTourPlayer(bar: HTMLElement, onStop: () => void): TourPlay
     window.clearTimeout(timer);
     remaining = seconds * 1000;
     deadline = performance.now() + remaining;
-    timer = window.setTimeout(() => go(index + 1), remaining);
+    timer = window.setTimeout(timeUp, remaining);
   };
 
   const renderTrack = (seconds: number | null): void => {
@@ -108,6 +153,7 @@ export function createTourPlayer(bar: HTMLElement, onStop: () => void): TourPlay
     scenes[index]?.leave?.();
     index = clamped;
     paused = false;
+    finished = false;
     pause.textContent = 'Pause';
     bar.classList.remove('is-paused');
 
@@ -163,8 +209,12 @@ export function createTourPlayer(bar: HTMLElement, onStop: () => void): TourPlay
     scenes[index]?.pause?.(false);
     // A scene paused while it was waiting (mid-walk) has no time left to run down.
     if (remaining < 0) return;
+    if (finished) {
+      if (automatic) go(index + 1);
+      return;
+    }
     deadline = performance.now() + remaining;
-    timer = window.setTimeout(() => go(index + 1), remaining);
+    timer = window.setTimeout(timeUp, remaining);
   };
 
   /** Stops the walk; `notify` reports it, which a restart does not. */
@@ -174,6 +224,7 @@ export function createTourPlayer(bar: HTMLElement, onStop: () => void): TourPlay
     scenes[index]?.leave?.();
     scenes = [];
     index = -1;
+    finished = false;
     bar.hidden = true;
     if (notify) onStop();
   };
@@ -185,11 +236,15 @@ export function createTourPlayer(bar: HTMLElement, onStop: () => void): TourPlay
       end(false);
       scenes = next;
       bar.hidden = false;
+      setAutomatic(true);
       go(startAt);
     },
     stop: () => end(),
     get playing() {
       return index >= 0;
+    },
+    get automatic() {
+      return automatic;
     },
   };
 }

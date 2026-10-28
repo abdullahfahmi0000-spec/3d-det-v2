@@ -95,6 +95,19 @@ export function planTour(
   return scenes;
 }
 
+/**
+ * Where the order is received: it comes in through the systems (mail, portal or EDI) to
+ * whoever registers it, so at the first desk the walk stops at; null when it stopped at none.
+ */
+export function intakeOf(
+  scenes: readonly TourScene[],
+): Extract<TourScene, { kind: 'stop' }> | null {
+  return (
+    scenes.find((scene): scene is Extract<TourScene, { kind: 'stop' }> => scene.kind === 'stop') ??
+    null
+  );
+}
+
 /** The number the dispatch of the goods carries in the flow, after the process's own steps. */
 export const dispatchStep = (stepCount: number): number => stepCount + 1;
 

@@ -210,14 +210,18 @@ export function kitchenette(b: ShapeBatch, m: Materials, length = 4): void {
   b.cylinder(0.06, 0.06, 0.12, m.ceramicPot, length / 4 + 0.35, 0.98, 0.05);
 }
 
+/** The seat centre of the receptionist's chair at a reception desk, in the desk's frame. */
+export const RECEPTION_CHAIR = [-0.6, -0.55] as const;
+
 /** A reception counter facing +Z, with the receptionist's side towards −Z. */
 export function receptionDesk(b: ShapeBatch, m: Materials, length = 3.6): void {
+  const [chairX, chairZ] = RECEPTION_CHAIR;
   b.block(length, 1.1, 0.5, m.deskWhite, 0, 0, 0.35);
   b.block(length + 0.1, 0.04, 0.62, m.oak, 0, 1.1, 0.35);
   b.block(length, 0.04, 0.7, m.countertop, 0, 0.74, -0.15);
-  b.block(0.6, 0.36, 0.025, m.plastic, -0.6, 0.78, 0.0);
-  b.block(0.58, 0.32, 0.005, m.screenOn, -0.6, 0.8, -0.015);
-  b.push(-0.6, 0, -0.55, 0);
+  b.block(0.6, 0.36, 0.025, m.plastic, chairX, 0.78, 0.0);
+  b.block(0.58, 0.32, 0.005, m.screenOn, chairX, 0.8, -0.015);
+  b.push(chairX, 0, chairZ, 0);
   officeChair(b, m);
   b.pop();
 }
@@ -267,10 +271,12 @@ export function printer(b: ShapeBatch, m: Materials): void {
 }
 
 /** A server cabinet, as used by an automated service. */
-export function serverCabinet(b: ShapeBatch, m: Materials): void {
-  b.block(0.6, 2, 1, m.steelBlack, 0, 0, 0);
-  b.box(0.52, 1.8, 0.01, m.machineWindow, 0, 1.0, 0.505);
+/** A server cabinet `depth` deep, its window and indicator lights facing +Z. */
+export function serverCabinet(b: ShapeBatch, m: Materials, depth = 1): void {
+  b.block(0.6, 2, depth, m.steelBlack, 0, 0, 0);
+  b.box(0.52, 1.8, 0.01, m.machineWindow, 0, 1.0, depth / 2 + 0.005);
   for (let slot = 0; slot < 8; slot += 1) {
-    b.box(0.48, 0.08, 0.01, slot % 3 === 0 ? m.screenOn : m.plastic, 0, 0.3 + slot * 0.2, 0.51);
+    const light = slot % 3 === 0 ? m.screenOn : m.plastic;
+    b.box(0.48, 0.08, 0.01, light, 0, 0.3 + slot * 0.2, depth / 2 + 0.01);
   }
 }

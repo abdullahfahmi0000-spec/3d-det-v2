@@ -1,5 +1,7 @@
 # loaders
 
-glTF 2.0 / GLB loading with Draco geometry and KTX2 texture transcoding.
+glTF 2.0 / GLB loading with Draco geometry (`create-gltf-loader.ts`). The host serves
+three.js's Draco decoder (`draco_decoder.wasm`, `draco_wasm_wrapper.js`) at
+`DRACO_DECODER_PATH` or a path it passes.
 
-Not implemented at bootstrap.
+KTX2 texture transcoding is not implemented: the converted models carry WebP textures.

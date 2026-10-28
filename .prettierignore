@@ -5,3 +5,5 @@ coverage
 .turbo
 pnpm-lock.yaml
 packages/db/generated
+# three.js's Draco decoder, copied in for the viewer demo to serve
+packages/three/demo/public/draco

@@ -6,9 +6,11 @@ import {
   Group,
   InstancedMesh,
   Matrix4,
+  Mesh,
   MeshStandardMaterial,
   Quaternion,
   Vector3,
+  type Material,
   type Object3D,
 } from 'three';
 import { CSS2DObject } from 'three/examples/jsm/renderers/CSS2DRenderer.js';
@@ -17,7 +19,13 @@ import * as furniture from '../assets/furniture';
 import { createMaterials, type Materials } from '../assets/materials';
 import { seededRandom } from '../assets/seeded-random';
 import { createVehicleKit, type VehicleKit } from '../assets/create-vehicle-kit';
-import { createAvatarKit, type AvatarKit } from '../avatars/create-avatar-kit';
+import {
+  createAvatarKit,
+  type AvatarAppearance,
+  type AvatarKit,
+} from '../avatars/create-avatar-kit';
+import type { CharacterModel } from '../avatars/create-character';
+import { seatPeople, type Seat, type SeatedPeople } from '../avatars/create-seated-people';
 import { SEATED_HEAD_HEIGHT } from '../avatars/proportions';
 import { createTreeGrove } from '../instancing/create-tree-grove';
 import {
@@ -40,9 +48,16 @@ import {
   type WorkstationModel,
 } from '../viewer-contract/twin-model';
 import { createHall, type BuiltHall } from './create-hall';
-import { createNavigation, type Navigation } from './create-navigation';
+import {
+  createNavigation,
+  WALKWAY_STEPS,
+  WALKWAY_TREAD,
+  type Navigation,
+} from './create-navigation';
 import { createOfficeBuilding, type BuiltOffice } from './create-office-building';
-import { ShapeBatch } from './shape-batch';
+import { insideFacade, receptionLayout } from './create-room';
+import { ShapeBatch, solidsOf } from './shape-batch';
+import type { Walker } from './walker';
 
 export interface Site {
   readonly root: Group;
@@ -75,7 +90,25 @@ export interface Site {
   resetDispatch(): void;
   /** Hides or shows every label of the twin at once. */
   setLabelsVisible(visible: boolean): void;
-  update(elapsed: number, cameraPosition: Vector3): void;
+  /**
+   * Sits an animated character, typing, in every occupied chair (the reception desks'
+   * included) in place of the procedural person built there, choosing among `models` by
+   * workstation. Returns how many were seated.
+   */
+  seatPeople(models: readonly CharacterModel[]): number;
+  /** Takes the animated characters out again, back to the procedural people. */
+  releasePeople(): void;
+  /**
+   * What a camera following someone through the buildings keeps in front of: the solid
+   * parts (stair treads, core walls, slabs, the concrete frame) and the room doors' leaves.
+   * Glazing is left out, as the camera can film through it.
+   */
+  cameraOccluders(): readonly Object3D[];
+  /**
+   * Animates the site. `walkers` are the people walking a route through the buildings, for
+   * the doors on their way; with none, the automatic doors open for the camera instead.
+   */
+  update(elapsed: number, cameraPosition: Vector3, walkers?: readonly Walker[]): void;
 }
 
 /** Pull-away acceleration and cruising speed of a dispatched truck. */
@@ -92,6 +125,9 @@ interface Departure {
   readonly parentYaw: number;
   start: number | null;
 }
+
+/** How the receptionist at the front desk looks. */
+const RECEPTIONIST: AvatarAppearance = { shirt: 0x2f6f73, skin: 0xc99a76, hair: 0x2a1a12 };
 
 /** Beyond this camera distance, in metres, people's labels would crowd, so they are hidden. */
 const NEAR_DISTANCE = 62;
@@ -201,6 +237,8 @@ export function createSite(model: TwinViewModel): Site {
     root.add(batch.build('walkways'));
   }
 
+  /** The chairs someone sits in, for the animated people. */
+  const seats: Seat[] = [];
   model.workstations.forEach((workstation, index) => {
     const storey = storeys.get(`${workstation.building}#${workstation.level}`);
     if (!storey) return;
@@ -211,6 +249,15 @@ export function createSite(model: TwinViewModel): Site {
       workstation.position[1] - storey.origin[1],
     );
     storey.group.add(station);
+    // Standing posts keep their procedural person: the characters only sit and type.
+    if (workstation.occupant === 'person' && workstation.kind !== 'standing') {
+      seats.push({
+        id: workstation.entity.id,
+        station,
+        placeholder: station.getObjectByName('person') ?? null,
+        appearance: workstation.appearance,
+      });
+    }
     registry.set(entityKey(workstation.entity), station);
     anchors.set(
       workstation.entity.id,
@@ -221,6 +268,22 @@ export function createSite(model: TwinViewModel): Site {
       ),
     );
   });
+
+  // A receptionist behind each office's reception desk.
+  for (const office of model.offices) {
+    const lobby = office.floors[0]?.rooms.find((room) => room.kind === 'lobby');
+    const storey = storeys.get(`${office.entity.id}#0`);
+    if (!lobby || !storey) continue;
+    const desk = receptionLayout(insideFacade(lobby, office));
+    const station = new Group();
+    station.name = `reception:${office.entity.id}`;
+    station.position.set(desk.seat[0], storey.elevation, desk.seat[1]);
+    station.rotation.y = desk.rotation;
+    const person = avatars.seated(RECEPTIONIST, model.workstations.length);
+    station.add(person);
+    storey.group.add(station);
+    seats.push({ id: station.name, station, placeholder: person, appearance: RECEPTIONIST });
+  }
 
   for (const callout of model.callouts ?? []) {
     const label = createLabel({
@@ -257,6 +320,7 @@ export function createSite(model: TwinViewModel): Site {
 
   let view: ViewModeModel = { building: null, level: null };
   let labelsOn = true;
+  let people: SeatedPeople | null = null;
   let lastElapsed: number | null = null;
   /** In the plan, the office floor shown: the one asked for, else the ground floor. */
   const planLevel = (building: string): number =>
@@ -287,9 +351,39 @@ export function createSite(model: TwinViewModel): Site {
   };
   applyView();
 
+  // Few, simple meshes (a storey's stair treads are one mesh of a few hundred triangles),
+  // so a camera can test them every frame.
+  const solid = new Set<Material>([m.stone, m.coreWall, m.slab, m.concrete]);
+  const occluders: Object3D[] = [
+    ...[...offices.values()].flatMap((office) => office.roomDoors.flatMap((set) => set.leaves)),
+    ...[...halls.values()].flatMap((hall) => hall.roomDoors.leaves),
+  ];
+  for (const building of [
+    ...[...offices.values()].flatMap((office) => office.floors),
+    ...[...halls.values()].map((hall) => hall.floor),
+  ]) {
+    building.traverse((object) => {
+      if (object instanceof Mesh && solid.has(object.material as Material)) occluders.push(object);
+    });
+  }
+
+  // What stands in the buildings, for walks to go round: every shape they are built of,
+  // and the leaves of the room doors, open.
+  const obstacles = new Map<string, Box3[]>();
+  for (const [id, office] of offices) {
+    obstacles.set(id, [
+      ...solidsOf(office.root),
+      ...office.roomDoors.flatMap((set) => set.openBoxes()),
+    ]);
+  }
+  for (const [id, hall] of halls) {
+    obstacles.set(id, [...solidsOf(hall.root), ...hall.roomDoors.openBoxes()]);
+  }
+
   const navigation = createNavigation({
     model,
     elevation: (building, level) => storeys.get(`${building}#${level}`)?.elevation ?? 0,
+    obstacles: (building) => obstacles.get(building) ?? [],
   });
 
   return {
@@ -367,6 +461,16 @@ export function createSite(model: TwinViewModel): Site {
     setLabelsVisible(visible) {
       labelsOn = visible;
     },
+    seatPeople(models) {
+      people?.dispose();
+      people = seatPeople(seats, models);
+      return people.count;
+    },
+    releasePeople() {
+      people?.dispose();
+      people = null;
+    },
+    cameraOccluders: () => occluders,
     resetDispatch() {
       departures = [];
       for (const [truck, placement] of docked) {
@@ -375,7 +479,7 @@ export function createSite(model: TwinViewModel): Site {
         truck.visible = true;
       }
     },
-    update(elapsed, cameraPosition) {
+    update(elapsed, cameraPosition, walkers = []) {
       for (const departure of departures) {
         departure.start ??= elapsed;
         const distance = distanceAfter(elapsed - departure.start);
@@ -390,8 +494,11 @@ export function createSite(model: TwinViewModel): Site {
       traffic.update(elapsed);
       const deltaSeconds = lastElapsed === null ? 0 : Math.min(elapsed - lastElapsed, 0.1);
       lastElapsed = elapsed;
-      for (const hall of halls.values()) hall.update(elapsed, deltaSeconds, cameraPosition);
-      for (const office of offices.values()) office.update(deltaSeconds, cameraPosition);
+      people?.update(deltaSeconds);
+      for (const hall of halls.values()) {
+        hall.update(elapsed, deltaSeconds, cameraPosition, walkers);
+      }
+      for (const office of offices.values()) office.update(deltaSeconds, cameraPosition, walkers);
 
       for (const entry of labels) {
         // Floor tags give the plan its floor numbers, so they stay on during a walk.
@@ -566,7 +673,7 @@ function buildWorkstation(
   switch (model.kind) {
     case 'executive':
       furniture.executiveDesk(b, m);
-      furniture.officeChair(b, m, true);
+      if (model.occupant !== 'automated') furniture.officeChair(b, m, true);
       break;
     case 'standing':
       furniture.standingStation(b, m, model.occupant !== 'vacant');
@@ -577,12 +684,14 @@ function buildWorkstation(
         screensOn: model.occupant !== 'free',
         white: index % 4 === 1,
       });
-      furniture.officeChair(b, m);
+      if (model.occupant !== 'automated') furniture.officeChair(b, m);
       break;
   }
   if (model.occupant === 'automated') {
-    b.push(1.3, 0, 0.55, 0);
-    furniture.serverCabinet(b, m);
+    // The service that does the job stands where its operator would sit, its lights to
+    // the room: beside the desk it would stand in the next one.
+    b.push(0, 0, -0.15, Math.PI);
+    furniture.serverCabinet(b, m, 0.6);
     b.pop();
   }
   if (model.occupant === 'vacant') {
@@ -786,11 +895,11 @@ function buildWalkway(b: ShapeBatch, m: Materials, walkway: WalkwayModel): void 
   for (let step = 1; step <= WALKWAY_STEPS; step += 1) {
     const rise = (WALKWAY_TOP - 0.45) / WALKWAY_STEPS;
     b.block(
-      0.4,
+      WALKWAY_TREAD,
       rise * step,
       walkway.width,
       m.stone,
-      length / 2 - 0.2 - (WALKWAY_STEPS - step) * 0.4,
+      length / 2 - (WALKWAY_STEPS - step + 0.5) * WALKWAY_TREAD,
       0.45,
       0,
     );
@@ -800,7 +909,6 @@ function buildWalkway(b: ShapeBatch, m: Materials, walkway: WalkwayModel): void 
 
 /** The walkway rises to the hall floor, at dock height, in a short flight of steps. */
 const WALKWAY_TOP = 1.2;
-const WALKWAY_STEPS = 3;
 
 /** Low-rise blocks around the site, fading into the fog, so it does not float in a void. */
 function createBackdrop(site: SiteModel): Group {

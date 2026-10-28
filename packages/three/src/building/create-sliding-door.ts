@@ -1,9 +1,17 @@
 import { BoxGeometry, Group, Mesh, Vector3, type Material } from 'three';
 
+import { isComingThrough, type Walker } from './walker';
+
 export interface SlidingDoor {
   readonly root: Group;
-  /** Opens the door while the camera is near it and closes it again once it has gone. */
-  update(deltaSeconds: number, cameraPosition: Vector3): void;
+  /**
+   * Opens the door while someone comes through it and closes it again once they have gone.
+   * With walkers about, it opens for a walker whose route goes through it; otherwise for the
+   * camera coming near.
+   */
+  update(deltaSeconds: number, cameraPosition: Vector3, walkers?: readonly Walker[]): void;
+  /** How far the door is open, from 0 (shut) to 1. */
+  readonly openness: number;
 }
 
 export interface SlidingDoorOptions {
@@ -17,7 +25,13 @@ export interface SlidingDoorOptions {
 /** How near the camera has to come for the door to open, and how fast it moves. */
 const OPEN_DISTANCE = 8;
 const OPEN_HEIGHT = 5;
-const SPEED = 1.6;
+/** Open in 0.4 s: before even a fast walk (5x) reaches it. */
+const SPEED = 2.5;
+/**
+ * How near across the floor a walker on a route through the door must be. Wide enough for
+ * the door to stay open for a camera following a few metres behind them.
+ */
+const WALKER_REACH = 5.5;
 
 /**
  * An automatic bi-parting door: two leaves in a frame that slide apart into the wall as
@@ -70,11 +84,16 @@ export function createSlidingDoor(options: SlidingDoorOptions): SlidingDoor {
 
   return {
     root,
-    update(deltaSeconds, cameraPosition) {
+    get openness() {
+      return open;
+    },
+    update(deltaSeconds, cameraPosition, walkers = []) {
       root.getWorldPosition(centre);
       const near =
-        Math.hypot(cameraPosition.x - centre.x, cameraPosition.z - centre.z) < OPEN_DISTANCE &&
-        Math.abs(cameraPosition.y - centre.y) < OPEN_HEIGHT;
+        walkers.length > 0
+          ? walkers.some((walker) => isComingThrough(walker, centre, WALKER_REACH))
+          : Math.hypot(cameraPosition.x - centre.x, cameraPosition.z - centre.z) < OPEN_DISTANCE &&
+            Math.abs(cameraPosition.y - centre.y) < OPEN_HEIGHT;
       const target = near ? 1 : 0;
       if (open === target) return;
       const step = SPEED * deltaSeconds;

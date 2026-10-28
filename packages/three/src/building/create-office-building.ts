@@ -13,10 +13,21 @@ import {
 import type { Materials } from '../assets/materials';
 import { createLabel } from '../overlays/create-label';
 import type { OfficeBuildingModel, RoomModel, Side } from '../viewer-contract/twin-model';
-import { buildRoom, fromRoomFrame, PARTITION_HEIGHT, stairLayout } from './create-room';
+import {
+  buildRoom,
+  insideFacade,
+  PARTITION_HEIGHT,
+  roomFrame,
+  slabWithHole,
+  stairLayout,
+  stairOpening,
+  type Rect,
+} from './create-room';
 import { createSlidingDoor } from './create-sliding-door';
+import { createSwingDoors, type DoorSpot, type SwingDoors } from './create-swing-doors';
 import { SIDES, sideFrame, spansAround } from './frames';
 import { ShapeBatch } from './shape-batch';
+import type { Walker } from './walker';
 
 export interface BuiltOffice {
   readonly root: Group;
@@ -27,8 +38,13 @@ export interface BuiltOffice {
   elevation(level: number): number;
   /** World bounds of one storey, for camera framing. */
   floorBounds(level: number): Box3;
-  /** Opens the automatic doors the camera comes near. */
-  update(deltaSeconds: number, cameraPosition: Vector3): void;
+  /**
+   * Opens the doors someone comes through: the room doors for walkers whose route goes
+   * through them, the automatic doors for walkers or, with none about, for the camera.
+   */
+  update(deltaSeconds: number, cameraPosition: Vector3, walkers?: readonly Walker[]): void;
+  /** The swinging room doors, one set per storey. */
+  readonly roomDoors: readonly SwingDoors[];
 }
 
 /** Plinth height: the ground floor sits a few steps above the plaza. */
@@ -62,6 +78,7 @@ export function createOfficeBuilding(model: OfficeBuildingModel, m: Materials): 
   const elevation = (level: number): number => PLINTH + level * height;
   const levels = model.floors.length;
 
+  const roomDoors: SwingDoors[] = [];
   const floors = model.floors.map((floor) => {
     const group = new Group();
     group.name = `floor:${floor.entity.id}`;
@@ -72,10 +89,19 @@ export function createOfficeBuilding(model: OfficeBuildingModel, m: Materials): 
     group.add(shell.build(`shell-${floor.level}`));
 
     const interior = new ShapeBatch();
+    const spots: DoorSpot[] = [];
     for (const room of floor.rooms) {
-      buildRoom(interior, m, room, model, elevation(floor.level), height - SLAB);
+      buildRoom(interior, m, room, model, elevation(floor.level), height - SLAB, {
+        doors: spots,
+        climb: height,
+        stairBelow: floor.level > 0,
+        stairUp: floor.level < levels - 1,
+      });
     }
     group.add(interior.build(`interior-${floor.level}`));
+    const swinging = createSwingDoors(spots, m.doorWood);
+    group.add(swinging.root);
+    roomDoors.push(swinging);
 
     for (const room of floor.rooms) {
       if (room.kind === 'core') continue;
@@ -92,7 +118,15 @@ export function createOfficeBuilding(model: OfficeBuildingModel, m: Materials): 
   const roof = new Group();
   roof.name = 'roof';
   const roofBatch = new ShapeBatch();
-  buildRoof(roofBatch, m, width, depth, elevation(levels));
+  const topCore = model.floors[levels - 1]?.rooms.find((room) => room.kind === 'core');
+  buildRoof(
+    roofBatch,
+    m,
+    width,
+    depth,
+    elevation(levels),
+    topCore ? insideFacade(topCore, model) : undefined,
+  );
   roof.add(roofBatch.build('roof'));
   root.add(roof);
 
@@ -129,8 +163,10 @@ export function createOfficeBuilding(model: OfficeBuildingModel, m: Materials): 
     floors,
     roof,
     elevation,
-    update(deltaSeconds, cameraPosition) {
-      for (const door of doors) door.update(deltaSeconds, cameraPosition);
+    roomDoors,
+    update(deltaSeconds, cameraPosition, walkers = []) {
+      for (const door of doors) door.update(deltaSeconds, cameraPosition, walkers);
+      for (const set of roomDoors) set.update(deltaSeconds, walkers);
     },
     floorBounds(level) {
       const base = elevation(level);
@@ -160,15 +196,24 @@ function buildStoreyShell(
   const base = elevation(level);
   const ceiling = elevation(level + 1) - SLAB;
 
+  // The stair from the storey below comes up through this floor's core.
+  const coreRoom = model.floors[level]?.rooms.find((room) => room.kind === 'core');
+  const core = level > 0 && coreRoom ? insideFacade(coreRoom, model) : undefined;
   if (level === 0) {
     b.block(width + 0.8, PLINTH, depth + 0.8, m.plinth, 0, 0, 0);
   } else {
-    const core = model.floors[level]?.rooms.find((room) => room.kind === 'core');
     slab(b, m, width - 0.2, depth - 0.2, base - SLAB, core);
     ceilingLights(b, m, width, depth, base - SLAB, core);
     ring(b, m.concrete, width, depth, base - SLAB, BAND, 0.4);
   }
-  b.block(width - 0.4, 0.02, depth - 0.4, m.vinyl, 0, base, 0);
+  // The floor finish, open over the stair like the slab under it.
+  const finish = {
+    minX: -width / 2 + 0.2,
+    maxX: width / 2 - 0.2,
+    minZ: -depth / 2 + 0.2,
+    maxZ: depth / 2 - 0.2,
+  };
+  slabWithHole(b, m.vinyl, finish, core ? stairOpening(core) : null, base, 0.02);
 
   // Glazing between the bands, with mullions, a transom and a sill rail.
   const glassBottom = level === 0 ? base + 0.05 : base - SLAB + BAND;
@@ -235,37 +280,22 @@ function buildStoreyShell(
   }
 }
 
-/** A rectangle in the building's local frame. */
-interface Rect {
-  readonly minX: number;
-  readonly maxX: number;
-  readonly minZ: number;
-  readonly maxZ: number;
-}
-
-/** The landing strip in front of the stair, open to the floor below. */
-const LANDING = { depth: 2.2, side: 0.9 } as const;
-
 /**
- * The stairwell void through an upper floor, as two rectangles: the core's footprint, and
- * the landing in front of its stair where someone coming up arrives.
+ * The stairwell opening through an upper floor (see `stairOpening`): its front is where the
+ * top step meets this floor, so someone coming up steps out onto the floor in front of the
+ * flights.
  */
 function voidParts(core: RoomModel): Rect[] {
-  const stairs = stairLayout(core);
-  const [cx, cz] = core.center;
-  const [sx, sz] = core.size;
-  const a = fromRoomFrame(core, stairs.firstFlight - LANDING.side, stairs.front);
-  const b = fromRoomFrame(core, stairs.secondFlight + LANDING.side, stairs.front + LANDING.depth);
-  return [
-    { minX: cx - sx / 2, maxX: cx + sx / 2, minZ: cz - sz / 2, maxZ: cz + sz / 2 },
-    {
-      minX: Math.min(a[0], b[0]),
-      maxX: Math.max(a[0], b[0]),
-      minZ: Math.min(a[1], b[1]),
-      maxZ: Math.max(a[1], b[1]),
-    },
-  ];
+  return [stairOpening(core)];
 }
+
+/** A room's footprint as a rectangle. */
+const footprint = (room: RoomModel): Rect => ({
+  minX: room.center[0] - room.size[0] / 2,
+  maxX: room.center[0] + room.size[0] / 2,
+  minZ: room.center[1] - room.size[1] / 2,
+  maxZ: room.center[1] + room.size[1] / 2,
+});
 
 const insideAny = (parts: readonly Rect[], x: number, z: number, margin = 0): boolean =>
   parts.some(
@@ -314,20 +344,36 @@ function slab(
     if (z1 > south) b.block(right - left, SLAB, z1 - south, m.slab, middle, y, (south + z1) / 2);
   }
 
-  // Balustrade on the three open sides of the landing, at the floor above.
-  const landing = parts[1]!;
-  const top = y + SLAB;
+  // Nobody walks into the opening.
+  const opening = parts[0]!;
+  b.keepOut(
+    opening.maxX - opening.minX,
+    2.2,
+    opening.maxZ - opening.minZ,
+    (opening.minX + opening.maxX) / 2,
+    y + SLAB,
+    (opening.minZ + opening.maxZ) / 2,
+  );
+
+  // A glass balustrade along the opening's two long sides, at this floor, standing on the
+  // edge of the slab clear of the flights; its front is open, where the stair meets the
+  // floor, and it ends at the face of the core's back wall.
+  const stairs = stairLayout(core);
+  const frame = roomFrame(core);
   const glass = 1.05;
-  const spanX = landing.maxX - landing.minX;
-  const spanZ = landing.maxZ - landing.minZ;
-  const midX = (landing.minX + landing.maxX) / 2;
-  const midZ = (landing.minZ + landing.maxZ) / 2;
-  b.block(spanX, glass, 0.03, m.partitionGlass, midX, top, landing.maxZ);
-  b.block(spanX + 0.06, 0.05, 0.08, m.aluminiumLight, midX, top + glass, landing.maxZ);
-  for (const x of [landing.minX, landing.maxX]) {
-    b.block(0.03, glass, spanZ, m.partitionGlass, x, top, midZ);
-    b.block(0.08, 0.05, spanZ, m.aluminiumLight, x, top + glass, midZ);
+  const backWall = stairs.back + 0.24;
+  const length = stairs.flightFront - backWall;
+  const middle = (stairs.flightFront + backWall) / 2;
+  const clear = 0.06;
+  b.push(frame.x, y + SLAB, frame.z, frame.rotation);
+  for (const x of [
+    stairs.firstFlight - stairs.width / 2 - clear,
+    stairs.secondFlight + stairs.width / 2 + clear,
+  ]) {
+    b.block(0.03, glass, length, m.partitionGlass, x, 0, middle);
+    b.block(0.08, 0.05, length, m.aluminiumLight, x, glass, middle);
   }
+  b.pop();
 }
 
 /** A grid of recessed light panels on the underside of a slab whose soffit is at `y`. */
@@ -341,7 +387,8 @@ function ceilingLights(
 ): void {
   for (let x = -width / 2 + 2.5; x < width / 2 - 1.5; x += 3.6) {
     for (let z = -depth / 2 + 2.5; z < depth / 2 - 1.5; z += 3.6) {
-      if (core && insideAny(voidParts(core), x, z, 0.7)) continue;
+      // Not over the core, whose walls would cut through the panels.
+      if (core && insideAny([footprint(core)], x, z, 0.7)) continue;
       b.block(1.2, 0.02, 0.6, m.ceilingLight, x, y - 0.02, z);
     }
   }
@@ -365,9 +412,16 @@ function ring(
   b.block(thickness, height, depth + proud * 2, material, -width / 2 - offset, y, 0);
 }
 
-function buildRoof(b: ShapeBatch, m: Materials, width: number, depth: number, top: number): void {
+function buildRoof(
+  b: ShapeBatch,
+  m: Materials,
+  width: number,
+  depth: number,
+  top: number,
+  core: RoomModel | undefined,
+): void {
   b.block(width - 0.2, SLAB, depth - 0.2, m.slab, 0, top - SLAB, 0);
-  ceilingLights(b, m, width, depth, top - SLAB);
+  ceilingLights(b, m, width, depth, top - SLAB, core);
   ring(b, m.concrete, width, depth, top - SLAB, 1.35, 0.4);
   b.block(width - 0.4, 0.04, depth - 0.4, m.gravel, 0, top, 0);
   ring(b, m.aluminiumLight, width, depth, top + 1.05, 0.08, 0.42);

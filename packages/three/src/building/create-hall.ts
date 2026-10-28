@@ -8,8 +8,10 @@ import { createLabel } from '../overlays/create-label';
 import type { HallModel, HallZoneModel, RackRowModel } from '../viewer-contract/twin-model';
 import { buildRoom } from './create-room';
 import { createSlidingDoor } from './create-sliding-door';
+import { createSwingDoors, type DoorSpot, type SwingDoors } from './create-swing-doors';
 import { pointOnSide, SIDES, sideFrame, spansAround } from './frames';
 import { ShapeBatch } from './shape-batch';
+import type { Walker } from './walker';
 
 export interface BuiltHall {
   readonly root: Group;
@@ -22,8 +24,16 @@ export interface BuiltHall {
   readonly registry: ReadonlyMap<string, Object3D>;
   /** A point above each docked truck, by truck entity id. */
   readonly anchors: ReadonlyMap<string, Vector3>;
+  /** The swinging doors of the rooms built inside the hall. */
+  readonly roomDoors: SwingDoors;
   bounds(): Box3;
-  update(elapsed: number, deltaSeconds: number, cameraPosition: Vector3): void;
+  /** Moves the forklift, and opens the doors someone comes through (see `BuiltOffice`). */
+  update(
+    elapsed: number,
+    deltaSeconds: number,
+    cameraPosition: Vector3,
+    walkers?: readonly Walker[],
+  ): void;
 }
 
 /** The hall floor is raised to trailer-deck height so pallets roll straight onto trucks. */
@@ -64,9 +74,14 @@ export function createHall(model: HallModel, m: Materials, vehicles: VehicleKit)
   const interior = new ShapeBatch();
   for (const zone of model.zones) buildZone(interior, m, zone);
   for (const row of model.rackRows) buildRackRow(interior, m, row);
-  for (const room of model.rooms) buildRoom(interior, m, room, model, DOCK_HEIGHT, 3.2);
+  const spots: DoorSpot[] = [];
+  for (const room of model.rooms) {
+    buildRoom(interior, m, room, model, DOCK_HEIGHT, 3.2, { doors: spots });
+  }
   buildDocksInside(interior, m, model);
   floor.add(interior.build('hall-interior'));
+  const roomDoors = createSwingDoors(spots, m.doorWood);
+  floor.add(roomDoors.root);
 
   for (const zone of model.zones) {
     const label = createLabel({ variant: 'zone', title: zone.title });
@@ -80,9 +95,11 @@ export function createHall(model: HallModel, m: Materials, vehicles: VehicleKit)
     floor.add(label);
   }
 
-  // Forklifts: one parked by the docks, one working an aisle.
+  // Forklifts: one parked beside the first dock, one working an aisle.
   const parked = vehicles.forklift();
-  const parkedAt = pointOnSide(model.dockSide, width, depth, -width / 2 + 6, -7);
+  const firstDock = Math.min(...model.docks.map((dock) => dock.offset));
+  const parkedAlong = Number.isFinite(firstDock) ? firstDock - 6 : -width / 2 + 6;
+  const parkedAt = pointOnSide(model.dockSide, width, depth, parkedAlong, -7);
   parked.position.set(parkedAt[0], DOCK_HEIGHT, parkedAt[1]);
   parked.rotation.y = 0.6;
   floor.add(parked);
@@ -90,6 +107,24 @@ export function createHall(model: HallModel, m: Materials, vehicles: VehicleKit)
   const working = vehicles.forklift();
   floor.add(working);
   const aisle = aisleFor(model);
+
+  // People on foot keep clear of the forklifts: the parked one, and the whole aisle the
+  // other one works up and down.
+  const forklift = new Box3().setFromObject(vehicles.forklift()).getSize(new Vector3());
+  const keepOut = new ShapeBatch();
+  const parkedReach = Math.hypot(forklift.x, forklift.z);
+  keepOut.keepOut(parkedReach, forklift.y, parkedReach, parkedAt[0], DOCK_HEIGHT, parkedAt[1]);
+  if (aisle) {
+    keepOut.keepOut(
+      aisle.to - aisle.from + forklift.z,
+      forklift.y,
+      forklift.x + 0.4,
+      (aisle.from + aisle.to) / 2,
+      DOCK_HEIGHT,
+      aisle.z,
+    );
+  }
+  floor.add(keepOut.build('forklift-lanes'));
 
   // Trucks backed onto the docks, with a sign over each door.
   const rotation = sideFrame(model.dockSide, width, depth, 0).place[3];
@@ -148,14 +183,16 @@ export function createHall(model: HallModel, m: Materials, vehicles: VehicleKit)
     floorLevel: DOCK_HEIGHT,
     registry,
     anchors,
+    roomDoors,
     bounds() {
       return new Box3(
         new Vector3(model.center[0] - width / 2, 0, model.center[1] - depth / 2),
         new Vector3(model.center[0] + width / 2, DOCK_HEIGHT + 4, model.center[1] + depth / 2),
       );
     },
-    update(elapsed, deltaSeconds, cameraPosition) {
-      for (const door of sliding) door.update(deltaSeconds, cameraPosition);
+    update(elapsed, deltaSeconds, cameraPosition, walkers = []) {
+      for (const door of sliding) door.update(deltaSeconds, cameraPosition, walkers);
+      roomDoors.update(deltaSeconds, walkers);
       if (!aisle) return;
       // Out along the aisle, pause, and back, on a 26-second cycle.
       const cycle = (elapsed % 26) / 26;

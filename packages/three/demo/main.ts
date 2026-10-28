@@ -1,3 +1,4 @@
+import { gltfCharacterLoader } from '../src/avatars/create-character';
 import { createViewer } from '../src/scene/create-viewer';
 import type { EntityRef } from '../src/viewer-contract/events';
 import type { ViewModeModel } from '../src/viewer-contract/twin-model';
@@ -19,8 +20,15 @@ import { createOrderPanel } from './ui/order-panel';
 import { createPeoplePanel } from './ui/people-panel';
 import { renderProcessPanel } from './ui/process-panel';
 import { createTabs } from './ui/tabs';
-import { dispatchStep, planTour, sceneTitle, type TourScene } from './layout/tour-plan';
-import { introCaption, outcomeCard, stopCard, type TourContext } from './ui/tour-cards';
+import { dispatchStep, intakeOf, planTour, sceneTitle, type TourScene } from './layout/tour-plan';
+import {
+  arrivalCard,
+  introCaption,
+  outcomeCard,
+  stopCard,
+  type TourContext,
+} from './ui/tour-cards';
+import { createSpeedControl } from './ui/speed-control';
 import { createTourPlayer, type PlayerScene } from './ui/tour-player';
 import { createFloorSwitch } from './ui/floor-switch';
 
@@ -47,7 +55,16 @@ const processKpis = computeProcessKpis(dataset);
 const twin = buildTwinModel(dataset, jobKpis);
 
 const canvas = requireElement('viewer-canvas', HTMLCanvasElement);
-const viewer = createViewer(canvas);
+// Animated people from public/models/people (converted by scripts/blender/build_character.py):
+// typing at the desks, and the process avatar who walks the order from step to step.
+const base = import.meta.env.BASE_URL;
+const viewer = createViewer(canvas, {
+  characters: {
+    load: gltfCharacterLoader(`${base}models/people/`, `${base}draco/`),
+    seated: ['office-worker-a', 'office-worker-b'],
+    avatar: 'office-worker-a',
+  },
+});
 viewer.load(twin);
 
 requireElement('tenant-name', HTMLElement).textContent = dataset.tenant.name;
@@ -192,20 +209,29 @@ function showOrder(orderRef: string): void {
 }
 
 // ---------------------------------------------------------------------------------------
-// Guided walk: from the entrance, a line is drawn on the floor to each desk in turn and
-// the camera travels it inside the building; then the lorry leaves with the goods.
+// Guided walk: the order arrives at the desk of whoever registers it, then a line is drawn on
+// the floor to each desk in turn and the camera travels it inside the building; last, the
+// avatar carries the order to the lorry, which leaves with the goods.
 
 const tourCaption = requireElement('tour-caption', HTMLElement);
 const tourOutcome = requireElement('tour-outcome', HTMLElement);
-const tour = createTourPlayer(requireElement('tour-bar', HTMLElement), endTour);
+/** How fast the avatar walks at first, as a multiple of a real walking pace. */
+const TRAVEL_SPEED = 2;
+viewer.setTravelSpeed(TRAVEL_SPEED);
+const tour = createTourPlayer(requireElement('tour-bar', HTMLElement), endTour, [
+  createSpeedControl(TRAVEL_SPEED, (speed) => viewer.setTravelSpeed(speed)),
+]);
 
 /** Seconds the camera rests on each person once it has reached their desk. */
 const STOP_SECONDS = 7;
-/** Seconds at the entrance before the order sets off, and at the dock before the lorry leaves. */
-const INTRO_SECONDS = 5;
+/** Seconds on the order arriving before the walk sets off, and at the dock before the lorry leaves. */
+const INTRO_SECONDS = 6;
 const DISPATCH_DELAY = 3;
-/** Where every order arrives: the head office's main entrance. */
+/** Where the walk opens: outside the head office's main entrance. */
 const ENTRANCE = `entrance:${OFFICE_ID}`;
+
+/** A stop of the walk at a desk. */
+type StopScene = Extract<TourScene, { kind: 'stop' }>;
 
 function playTour(startAt = 0): void {
   // A walk already running (Play again, or Play pressed mid-walk) is ended first, with its
@@ -220,14 +246,18 @@ function playTour(startAt = 0): void {
     costs: costAssumptions,
     orderCost: orderCosts.find((cost) => cost.orderRef === currentOrder),
   };
-  // Each stop is travelled to from the one before it, the first from the entrance; the
-  // steps reached so far are known per scene, so jumping back and forth stays consistent.
-  // In 2D the same walk is drawn on the floors from above.
+  // The walk opens outside the head office: the avatar walks in from its entrance to the
+  // desk of whoever registers the order (the first stop), and the order is received there.
+  // Each stop is travelled to from the one before it; the steps reached so far are known per
+  // scene, so jumping back and forth stays consistent. In 2D the same walk is drawn on the
+  // floors from above.
   const toScene = mode === '2d' ? toPlanScene : toPlayerScene;
-  let previous = ENTRANCE;
+  const plan = planTour(progress, toRoute(dataset, progress), twin);
+  const intake = intakeOf(plan);
+  let previous = intake?.stop.anchor ?? ENTRANCE;
   const reached = new Set<number>();
-  const scenes = planTour(progress, toRoute(dataset, progress), twin).map((scene) => {
-    const player = toScene(scene, context, previous, new Set(reached));
+  const scenes = plan.map((scene) => {
+    const player = toScene(scene, context, previous, new Set(reached), intake);
     if (scene.kind === 'stop' || scene.kind === 'dispatch') {
       previous = scene.stop.anchor;
       reached.add(
@@ -258,6 +288,7 @@ function toPlayerScene(
   context: TourContext,
   from: string,
   reachedBefore: ReadonlySet<number>,
+  intake: StopScene | null,
 ): PlayerScene {
   const { progress } = context;
   const title = sceneTitle(scene);
@@ -271,15 +302,40 @@ function toPlayerScene(
     case 'intro':
       return {
         title,
-        seconds: INTRO_SECONDS,
-        enter() {
-          viewer.setCallout(null);
+        // The scene waits while the avatar walks in; reaching the desk sets its time.
+        seconds: null,
+        pause: (paused) => viewer.pauseTravel(paused),
+        enter({ retime }) {
           viewer.select(null);
+          viewer.setCallout(null);
           flowBar.setCurrent(null);
           showReached(null);
-          viewer.showPlace(ENTRANCE);
-          tourCaption.replaceChildren(introCaption(context));
-          tourCaption.hidden = false;
+          tourCaption.hidden = true;
+          // The order is received once the avatar has walked in, from outside the head
+          // office's entrance, to the desk of whoever registers it.
+          const receive = (): void => {
+            if (intake) {
+              viewer.select(intake.entity);
+              viewer.setCallout({ entity: intake.entity, element: arrivalCard(context, intake) });
+            }
+            tourCaption.replaceChildren(introCaption(context));
+            tourCaption.hidden = false;
+            retime(INTRO_SECONDS);
+          };
+          if (!intake) {
+            viewer.showPlace(ENTRANCE);
+            receive();
+            return;
+          }
+          const walking = viewer.travelTo(intake.stop.anchor, {
+            from: ENTRANCE,
+            state: intake.stop.state,
+            onArrive: receive,
+          });
+          if (!walking) {
+            viewer.showPlace(intake.stop.anchor);
+            receive();
+          }
         },
         leave() {
           tourCaption.hidden = true;
@@ -316,13 +372,19 @@ function toPlayerScene(
               if (seconds !== null) retime(seconds + 1.5);
             }, DISPATCH_DELAY);
           };
+          // Between desks the order goes through the systems; the avatar carries it, as a
+          // folder, only on the last leg, to the lorry.
           const travelling = viewer.travelTo(scene.stop.anchor, {
             from,
             state: scene.stop.state,
             onArrive: arrive,
+            carrying: scene.kind === 'dispatch',
           });
           if (!travelling) {
-            viewer.focus(entity);
+            // Already there (two steps at one desk): the avatar stays beside it, seen from
+            // inside; otherwise there is no way there, and the camera flies to it.
+            if (from === scene.stop.anchor) viewer.showPlace(from);
+            else viewer.focus(entity);
             arrive();
           }
         },
@@ -364,6 +426,7 @@ function toPlanScene(
   context: TourContext,
   from: string,
   reachedBefore: ReadonlySet<number>,
+  intake: StopScene | null,
 ): PlayerScene {
   const { progress } = context;
   const title = sceneTitle(scene);
@@ -378,16 +441,37 @@ function toPlanScene(
     case 'intro':
       return {
         title,
-        seconds: INTRO_SECONDS,
-        enter() {
+        seconds: null,
+        pause: (paused) => viewer.pauseTravel(paused),
+        enter({ retime }) {
           viewer.clearTravel();
+          viewer.select(null);
           viewer.setCallout(null);
           flowBar.setCurrent(null);
           showReached(null);
+          tourCaption.hidden = true;
+          // The head office's ground floor, where the line comes in from the entrance to the
+          // desk the order is received at; its card opens there.
           viewer.showPlanFloor(OFFICE_ID, 0);
           floorSwitch.setCurrent(OFFICE_ID, 0);
-          tourCaption.replaceChildren(introCaption(context));
-          tourCaption.hidden = false;
+          const receive = (): void => {
+            if (intake) {
+              viewer.select(intake.entity);
+              viewer.setCallout({ entity: intake.entity, element: arrivalCard(context, intake) });
+            }
+            tourCaption.replaceChildren(introCaption(context));
+            tourCaption.hidden = false;
+            retime(INTRO_SECONDS);
+          };
+          const drawing =
+            intake &&
+            viewer.drawPath(intake.stop.anchor, {
+              from: ENTRANCE,
+              state: intake.stop.state,
+              onStorey,
+              onArrive: receive,
+            });
+          if (!drawing) receive();
         },
         leave() {
           tourCaption.hidden = true;
@@ -525,7 +609,10 @@ if (requestedFocus) {
   const isPerson = dataset.persons.some((person) => person.id === requestedFocus);
   focusOn({ kind: isPerson ? 'person' : 'job', id: requestedFocus });
 }
-if (params.has('play')) playTour(Number(params.get('play')) || 0);
+// The walk waits for the avatar who walks it.
+if (params.has('play')) {
+  void viewer.peopleReady().then(() => playTour(Number(params.get('play')) || 0));
+}
 
 /** The floating panels cover the canvas edges; the camera frames what is left. */
 function measureInsets(): void {
