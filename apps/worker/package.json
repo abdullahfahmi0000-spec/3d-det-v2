@@ -18,7 +18,7 @@
     "@3ddet/contracts": "workspace:*",
     "@3ddet/db": "workspace:*",
     "@3ddet/domain": "workspace:*",
-    "bullmq": "^6.3.15"
+    "bullmq": "^6.4.2"
   },
   "devDependencies": {
     "@3ddet/config": "workspace:*",
