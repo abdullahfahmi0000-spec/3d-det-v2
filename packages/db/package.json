@@ -17,13 +17,13 @@
   },
   "dependencies": {
     "@3ddet/domain": "workspace:*",
-    "kysely": "^0.29.6",
+    "kysely": "^0.29.8",
     "pg": "^8.23.1"
   },
   "devDependencies": {
     "@3ddet/config": "workspace:*",
     "@types/pg": "^8.15.6",
     "typescript": "~6.0.3",
-    "vitest": "^5.0.5"
+    "vitest": "^5.1.0"
   }
 }
